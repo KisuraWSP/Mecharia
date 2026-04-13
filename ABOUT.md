@@ -1,3 +1,6 @@
+# Theme of the Gamejam
+- **Machines**
+
 # Mecharia
 - This game is a platformer about a samurai character 
   who is living in a futuristic world of machines
