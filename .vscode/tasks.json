@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Publish Release",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "-c",
+        "Release"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Publish and Serve WASM",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "serve",
+        "--mime", ".wasm=application/wasm",
+        "--mime", ".js=text/javascript",
+        "--mime", ".json=application/json",
+        "--directory", "RaylibWasm/bin/Release/net10.0/browser-wasm/AppBundle/"
+      ],
+      "dependsOn": "Publish Release",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}
