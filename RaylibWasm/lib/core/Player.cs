@@ -18,6 +18,10 @@ public class Player
     public int Health { get; set; } = 200;
     public int MaxHealth { get; set; } = 200;
     public Rectangle Collider { get; private set; }
+    
+    // NEW: Hitbox for your katana to check enemy collisions later
+    public Rectangle AttackHitbox { get; private set; } 
+
     private int currentFrame = 0;
     private int frameCounter = 0;
     private int frameSpeed = 8;
@@ -27,6 +31,9 @@ public class Player
     private Vector2 position;
     private Rectangle frameRec;
     private bool isFacingRight = true;
+    
+    // NEW: State flag to track if we are currently swinging the katana
+    public bool isAttacking = false; 
 
     private static string baseDir = AppContext.BaseDirectory;
     private static string resourcesDir = Path.Combine(baseDir, "Resources", "sprite", "player");
@@ -74,6 +81,13 @@ public class Player
 
     public void Update()
     {
+        // NEW: Check for attack input (Left Mouse Button)
+        if (!isAttacking && Raylib.IsMouseButtonPressed(MouseButton.Left))
+        {
+            isAttacking = true;
+            ChangeState(AnimationState.ATTACK);
+        }
+
         frameCounter++;
 
         if (frameCounter >= (Game.fps/frameSpeed))
@@ -81,14 +95,50 @@ public class Player
             frameCounter = 0;
             currentFrame++;
 
+            // NEW: Animation end logic
             if (currentFrame >= frameCounts[animationState]) 
             {
-                currentFrame = 0;
+                if (isAttacking)
+                {
+                    // The attack animation finished, unlock the state and go to IDLE
+                    isAttacking = false;
+                    ChangeState(AnimationState.IDLE);
+                }
+                else
+                {
+                    // Loop standard animations like RUN or IDLE
+                    currentFrame = 0;
+                }
             }
-            frameRec.X = (float)currentFrame * (float)frameRec.Width;
+            
+            // Ensure we don't draw out of bounds when swapping states
+            if (currentFrame < frameCounts[animationState])
+            {
+                frameRec.X = (float)currentFrame * (float)frameRec.Width;
+            }
         }
         
         Collider = new Rectangle(position.X, position.Y, frameRec.Width, frameRec.Height);
+        
+        // NEW: Update the Katana hitbox relative to the player
+        UpdateAttackHitbox();
+    }
+
+    private void UpdateAttackHitbox()
+    {
+        if (isAttacking)
+        {
+            // Position the hitbox in front of the player based on the direction they face
+            float hitboxWidth = 60f; // Adjust based on your katana sprite reach
+            float hitboxX = isFacingRight ? position.X + frameRec.Width : position.X - hitboxWidth;
+            
+            AttackHitbox = new Rectangle(hitboxX, position.Y, hitboxWidth, frameRec.Height);
+        }
+        else
+        {
+            // Hide the hitbox when not attacking
+            AttackHitbox = new Rectangle(0, 0, 0, 0);
+        }
     }
 
     public void Draw()
@@ -101,27 +151,47 @@ public class Player
         }
         
         Raylib.DrawTextureRec(textures[animationState], drawRec, position, Color.White);
+
+        // OPTIONAL: Uncomment to see your attack hitbox for debugging!
+        /*
+        if (isAttacking)
+        {
+            Raylib.DrawRectangleLinesEx(AttackHitbox, 2, Color.Red);
+        }
+        */
     }
 
     public void Move(int speed)
     {
+        bool isMoving = false;
+
+        // Note: You can still move left/right while attacking. 
+        // If you want the player to freeze in place while swinging, 
+        // wrap this whole movement block in 'if (!isAttacking)'
         if (Raylib.IsKeyDown(KeyboardKey.A) || Raylib.IsKeyDown(KeyboardKey.Left))
         {
             position.X -= speed;
             isFacingRight = false;
-            ChangeState(AnimationState.RUN);
+            isMoving = true;
         }
         else if (Raylib.IsKeyDown(KeyboardKey.D) || Raylib.IsKeyDown(KeyboardKey.Right))
         {
             position.X += speed;
             isFacingRight = true;
-            ChangeState(AnimationState.RUN);
+            isMoving = true;
         }
 
-        if (Raylib.IsKeyReleased(KeyboardKey.A) || Raylib.IsKeyReleased(KeyboardKey.D) || Raylib.IsKeyReleased(KeyboardKey.Left) || Raylib.IsKeyReleased(KeyboardKey.Right))
+        // NEW: Only change to RUN or IDLE animations if we aren't currently swinging
+        if (!isAttacking)
         {
-            ChangeState(AnimationState.IDLE);
-            speed = 0;
+            if (isMoving)
+            {
+                ChangeState(AnimationState.RUN);
+            }
+            else
+            {
+                ChangeState(AnimationState.IDLE);
+            }
         }
     }
 

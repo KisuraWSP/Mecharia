@@ -23,13 +23,14 @@ public class Game
     private static bool isInventoryOpen = false;
     private static InventoryManager inventoryManager;
     private List<ItemEntity> worldItems;
-
+    private static List<Enemy> enemies = new List<Enemy>();
     public static void Init()
     {
         Vector2 startPos = new Vector2(width / 2, height / 2);
         player = new Player(startPos);  
         camera = new Camera2D(new Vector2(width / 2, height / 2), new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f), 0.0f, 3.0f);
         inventoryManager = new InventoryManager(width, height);
+        enemies.Add(new Enemy(new Vector2(startPos.X + 300, startPos.Y)));
     }
 
     public static void Draw()
@@ -38,7 +39,11 @@ public class Game
             Raylib.ClearBackground(Color.SkyBlue);
             
             Raylib.BeginMode2D(camera);
-                player.Draw();    
+                player.Draw();  
+                foreach (var enemy in enemies)
+                {
+                    enemy.Draw();
+                }  
             Raylib.EndMode2D();
             
             DrawPlayerUI();
@@ -64,6 +69,30 @@ public class Game
         {
             inventoryManager.Update();
             return; 
+        }
+
+        // --- ENEMY UPDATE & COLLISION LOGIC ---
+        for (int i = enemies.Count - 1; i >= 0; i--)
+        {
+            Enemy enemy = enemies[i];
+            enemy.Update(player.GetPlayerPosition());
+
+            // Check if player's attack hitbox hits the enemy
+            if (player.isAttacking)
+            {
+                if (Raylib.CheckCollisionRecs(player.AttackHitbox, enemy.Collider))
+                {
+                    // Deal damage! (You might want to add a cooldown timer to the player 
+                    // so they don't do 60 instances of damage in a single swing frame)
+                    enemy.TakeDamage(1); 
+                }
+            }
+
+            // If enemy dies, remove them from the list
+            if (enemy.IsDead)
+            {
+                enemies.RemoveAt(i);
+            }
         }
     }   
 
