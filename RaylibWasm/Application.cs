@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices.JavaScript;
 using Raylib_cs;
 using RayGUI;
+using lib.core;
 
 namespace RaylibWasm
 {
@@ -11,8 +12,9 @@ namespace RaylibWasm
         /// </summary>
         public static void Main()
         {
-            Raylib.InitWindow(512, 512, "RaylibWasm");
+            Raylib.InitWindow(Game.width, Game.height, Game.title);
             Raylib.SetTargetFPS(60);
+            Game.Init();
         }
 
         /// <summary>
@@ -21,12 +23,8 @@ namespace RaylibWasm
         [JSExport]
         public static void UpdateFrame()
         {
-            Raylib.BeginDrawing();
-
-            Raylib.ClearBackground(Color.White);
-
-
-            Raylib.EndDrawing();
+            Game.Update();
+            Game.Draw();
         }
     }
 }
