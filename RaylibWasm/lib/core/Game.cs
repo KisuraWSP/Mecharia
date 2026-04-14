@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Numerics;
 using Raylib_cs;
+using Roy_T.AStar.Grids;
+using Roy_T.AStar.Primitives;
 
 namespace lib.core;
 
@@ -24,13 +26,35 @@ public class Game
     private static InventoryManager inventoryManager;
     private List<ItemEntity> worldItems;
     private static List<Enemy> enemies = new List<Enemy>();
+
+    // Pathfinding properties
+    public static int CellSize = 40; 
+    public static Grid WorldGrid;
+
     public static void Init()
     {
+        int columns = width / CellSize;
+        int rows = height / CellSize;
+        
+        var gridSize = new GridSize(columns: columns, rows: rows);
+
+        var cellSize = new Size(Distance.FromMeters(1), Distance.FromMeters(1)); 
+        var traversalVelocity = Velocity.FromKilometersPerHour(100);
+
+        // Create the grid (Use CreateGridWithLateralAndDiagonalConnections if you want diagonal movement!)
+        WorldGrid = Grid.CreateGridWithLateralConnections(gridSize, cellSize, traversalVelocity);
+
+        // 2. Create a fake "wall" right in the middle of the screen by DISCONNECTING the nodes
+        for (int y = 5; y < 13; y++)
+        {
+            WorldGrid.DisconnectNode(new GridPosition(13, y));
+        }
+        
         Vector2 startPos = new Vector2(width / 2, height / 2);
         player = new Player(startPos);  
         camera = new Camera2D(new Vector2(width / 2, height / 2), new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f), 0.0f, 3.0f);
         inventoryManager = new InventoryManager(width, height);
-        enemies.Add(new Enemy(new Vector2(startPos.X + 300, startPos.Y)));
+        enemies.Add(new Enemy(new Vector2(startPos.X + 500, startPos.Y)));
     }
 
     public static void Draw()
@@ -39,7 +63,9 @@ public class Game
             Raylib.ClearBackground(Color.SkyBlue);
             
             Raylib.BeginMode2D(camera);
+                Raylib.DrawRectangle(13 * CellSize, 5 * CellSize, CellSize, 8 * CellSize, Color.DarkGray);
                 player.Draw();  
+                
                 foreach (var enemy in enemies)
                 {
                     enemy.Draw();
@@ -75,20 +101,18 @@ public class Game
         for (int i = enemies.Count - 1; i >= 0; i--)
         {
             Enemy enemy = enemies[i];
-            enemy.Update(player.GetPlayerPosition());
+            
+            // Pass the WorldGrid into the enemy update
+            enemy.Update(player.GetPlayerPosition(), WorldGrid);
 
-            // Check if player's attack hitbox hits the enemy
             if (player.isAttacking)
             {
                 if (Raylib.CheckCollisionRecs(player.AttackHitbox, enemy.Collider))
                 {
-                    // Deal damage! (You might want to add a cooldown timer to the player 
-                    // so they don't do 60 instances of damage in a single swing frame)
                     enemy.TakeDamage(1); 
                 }
             }
 
-            // If enemy dies, remove them from the list
             if (enemy.IsDead)
             {
                 enemies.RemoveAt(i);
