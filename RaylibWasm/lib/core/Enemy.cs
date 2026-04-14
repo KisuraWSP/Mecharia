@@ -1,133 +1,163 @@
+using System;
 using System.Numerics;
 using Raylib_cs;
-using Roy_T.AStar.Grids;      
-using Roy_T.AStar.Primitives; 
-using Roy_T.AStar.Paths;
-using System.Collections.Generic;
-using System;
 
 namespace lib.core;
 
+// 1. Define the different types of enemies in your game
+public enum EnemyType
+{
+    StandardMachine,
+    EliteSamuraiBot
+}
+
+// 2. Define the animation states
+public enum EnemyState
+{
+    IDLE,
+    RUN,
+    ATTACK,
+    HURT,
+    DEAD
+}
+
+// 3. Define how the sprite sheet is formatted
+public enum SpriteSheetLayout
+{
+    SingleSheet,   // 1 image containing rows of animations
+    SeparateFiles  // Multiple images (IDLE.png, RUN.png, etc.)
+}
+
 public class Enemy
 {
-    public int Health { get; private set; } = 50;
+    public EnemyProfile Profile { get; private set; }
+    public int Health { get; private set; }
     public Vector2 Position { get; private set; }
-    public Rectangle Collider { get; private set; }
-    public bool IsDead => Health <= 0;
-
-    private float speed = 2.0f;
-    private int width = 40;
-    private int height = 40;
-
-    // Pathfinding memory
-    private List<Vector2> currentPath = new List<Vector2>();
-    private int currentWaypointIndex = 0;
-    private float pathRecalculateTimer = 0f;
     
-    public Enemy(Vector2 startPosition)
+    // Collider dynamically reads the active animation config size
+    public Rectangle Collider => new Rectangle(Position.X, Position.Y, 
+        Profile.Animations.ContainsKey(currentState) ? Profile.Animations[currentState].FrameWidth : 40, 
+        Profile.Animations.ContainsKey(currentState) ? Profile.Animations[currentState].FrameHeight : 40);
+
+    public bool IsDead => Health <= 0 && currentState == EnemyState.DEAD && 
+                          currentFrame >= Profile.Animations[EnemyState.DEAD].FrameCount - 1;
+
+    private bool isFacingRight = true;
+    private EnemyState currentState = EnemyState.IDLE;
+    private int currentFrame = 0;
+    private int frameCounter = 0;
+    private int frameSpeed = 8;
+    private Rectangle frameRec;
+
+    private float currentAttackTimer = 0f;
+    private float attackCooldown = 1.5f;
+
+    // Notice how clean the constructor is now!
+    public Enemy(Vector2 startPosition, EnemyProfile profile)
     {
         Position = startPosition;
-        Collider = new Rectangle(Position.X, Position.Y, width, height);
+        Profile = profile;
+        Health = profile.MaxHealth;
+        
+        ChangeState(EnemyState.IDLE);
     }
 
-    public void Update(Vector2 playerPosition, Grid worldGrid)
+    private void ChangeState(EnemyState newState)
     {
-        if (IsDead) return;
-
-        // 1. Recalculate path every 0.5 seconds
-        pathRecalculateTimer -= Raylib.GetFrameTime();
-        if (pathRecalculateTimer <= 0)
+        if (currentState != newState && Profile.Animations.ContainsKey(newState))
         {
-            CalculatePath(playerPosition, worldGrid);
-            pathRecalculateTimer = 0.5f; 
+            currentState = newState;
+            currentFrame = 0;
+            frameCounter = 0;
+            UpdateFrameRectangle();
         }
-
-        // 2. Move along the path waypoints
-        if (currentPath != null && currentWaypointIndex < currentPath.Count)
-        {
-            Vector2 targetWaypoint = currentPath[currentWaypointIndex];
-            
-            if (Vector2.Distance(Position, targetWaypoint) > 3.0f)
-            {
-                Vector2 direction = Vector2.Normalize(targetWaypoint - Position);
-                Position += direction * speed;
-            }
-            else
-            {
-                currentWaypointIndex++; 
-            }
-        }
-
-        Collider = new Rectangle(Position.X, Position.Y, width, height);
     }
 
-    private void CalculatePath(Vector2 playerPosition, Grid grid)
+    public void Update(Vector2 playerPosition)
     {
-        int cols = Game.width / Game.CellSize;
-        int rows = Game.height / Game.CellSize;
-
-        // Convert Pixel Coordinates to Grid Coordinates
-        int startX = (int)(Position.X / Game.CellSize);
-        int startY = (int)(Position.Y / Game.CellSize);
-        int endX = (int)(playerPosition.X / Game.CellSize);
-        int endY = (int)(playerPosition.Y / Game.CellSize);
-
-        // Clamp to map boundaries
-        startX = Math.Clamp(startX, 0, cols - 1);
-        startY = Math.Clamp(startY, 0, rows - 1);
-        endX = Math.Clamp(endX, 0, cols - 1);
-        endY = Math.Clamp(endY, 0, rows - 1);
-
-        // v3.0.2: Instantiate a PathFinder and get the path
-        var pathFinder = new PathFinder();
-        var path = pathFinder.FindPath(new GridPosition(startX, startY), new GridPosition(endX, endY), grid);
-
-        currentPath.Clear();
-        currentWaypointIndex = 0;
-
-        // v3.0.2: The path is now a series of Edges if a route was found
-        if (path.Type == PathType.Complete)
+        if (currentState == EnemyState.DEAD || currentState == EnemyState.HURT || currentState == EnemyState.ATTACK)
         {
-            foreach (var edge in path.Edges)
+            UpdateAnimation();
+            return;
+        }
+
+        float distanceX = Math.Abs(playerPosition.X - Position.X);
+        currentAttackTimer -= Raylib.GetFrameTime();
+
+        if (distanceX < Profile.AttackRange && currentAttackTimer <= 0)
+        {
+            ChangeState(EnemyState.ATTACK);
+            currentAttackTimer = attackCooldown;
+        }
+        else if (distanceX >= Profile.AttackRange && distanceX < 600f) 
+        {
+            ChangeState(EnemyState.RUN);
+            int dirX = playerPosition.X > Position.X ? 1 : -1;
+            Position = new Vector2(Position.X + (dirX * Profile.Speed), Position.Y);
+            isFacingRight = dirX == 1;
+        }
+        else
+        {
+            ChangeState(EnemyState.IDLE);
+        }
+
+        UpdateAnimation();
+    }
+
+    private void UpdateAnimation()
+    {
+        if (!Profile.Animations.ContainsKey(currentState)) return;
+
+        AnimationConfig config = Profile.Animations[currentState];
+
+        frameCounter++;
+        if (frameCounter >= (Game.fps / frameSpeed))
+        {
+            frameCounter = 0;
+            currentFrame++;
+
+            if (currentFrame >= config.FrameCount)
             {
-                // Because we set our cellSize to 1 meter in Game.cs, 
-                // the edge.End.Position corresponds perfectly to our Grid X/Y coordinates.
-                float gridX = edge.End.Position.X; 
-                float gridY = edge.End.Position.Y; 
-                
-                // Convert back into world pixels
-                float worldX = (gridX * Game.CellSize) + (Game.CellSize / 2f) - (width / 2f);
-                float worldY = (gridY * Game.CellSize) + (Game.CellSize / 2f) - (height / 2f);
-                
-                currentPath.Add(new Vector2(worldX, worldY));
+                if (currentState == EnemyState.DEAD)
+                    currentFrame = config.FrameCount - 1; 
+                else if (currentState == EnemyState.HURT || currentState == EnemyState.ATTACK)
+                    ChangeState(EnemyState.IDLE); 
+                else
+                    currentFrame = 0; 
             }
+        }
+        UpdateFrameRectangle();
+    }
+
+    private void UpdateFrameRectangle()
+    {
+        if (Profile.Animations.ContainsKey(currentState))
+        {
+            AnimationConfig config = Profile.Animations[currentState];
+            frameRec = new Rectangle(currentFrame * config.FrameWidth, config.OffsetY, config.FrameWidth, config.FrameHeight);
         }
     }
 
     public void TakeDamage(int damageAmount)
     {
+        if (Health <= 0) return;
         Health -= damageAmount;
-        // You can add a knockback effect or hit flash here later!
+        ChangeState(Health <= 0 ? EnemyState.DEAD : EnemyState.HURT);
     }
 
     public void Draw()
     {
-        if (IsDead) return;
+        if (IsDead || !Profile.Animations.ContainsKey(currentState)) return;
 
-        Raylib.DrawRectangleRec(Collider, Color.Red);
-        
-        Raylib.DrawRectangle((int)Position.X, (int)Position.Y - 10, width, 5, Color.Black);
-        Raylib.DrawRectangle((int)Position.X, (int)Position.Y - 10, (int)(width * (Health / 50f)), 5, Color.Red);
+        AnimationConfig config = Profile.Animations[currentState];
+        Rectangle drawRec = frameRec;
 
-        // Debug laser line to verify pathfinding is working
-        if (currentPath != null && currentWaypointIndex < currentPath.Count)
-        {
-            for (int i = currentWaypointIndex; i < currentPath.Count - 1; i++)
-            {
-                Vector2 p1 = new Vector2(currentPath[i].X + width/2, currentPath[i].Y + height/2);
-                Vector2 p2 = new Vector2(currentPath[i+1].X + width/2, currentPath[i+1].Y + height/2);
-                Raylib.DrawLineEx(p1, p2, 2.0f, Color.Green);
-            }
-        }
+        if (!isFacingRight) drawRec.Width = -drawRec.Width;
+
+        Raylib.DrawTextureRec(config.Texture, drawRec, Position, Color.White);
+
+        // Health bar
+        Raylib.DrawRectangle((int)Position.X, (int)Position.Y - 10, config.FrameWidth, 5, Color.Black);
+        Raylib.DrawRectangle((int)Position.X, (int)Position.Y - 10, (int)(config.FrameWidth * ((float)Health / Profile.MaxHealth)), 5, Color.Red);
     }
 }
