@@ -40,7 +40,6 @@ public class Player
 
     public Player(Vector2 _position)
     {
-        position = _position;
         textures = new Dictionary<AnimationState, Texture2D>();
         frameCounts = new Dictionary<AnimationState, int>();
 
@@ -56,8 +55,12 @@ public class Player
         textures[AnimationState.RUN] = Raylib.LoadTexture(Path.Combine(resourcesDir, "RUN.png"));
         frameCounts[AnimationState.RUN] = 16;
         
+        animationState = AnimationState.IDLE;
         UpdateFrameRectangle();
-        Collider = new Rectangle(position.X, position.Y, 50, 50);
+
+        position = _position;;
+
+        Collider = new Rectangle(position.X, position.Y, frameRec.Width, frameRec.Height);
     }
 
     private void ChangeState(AnimationState newState)
