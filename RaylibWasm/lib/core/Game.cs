@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Numerics;
 using Raylib_cs;
 
@@ -19,25 +20,34 @@ public class Game
     public static int fps = 60; 
     private static Player player;
     private static Camera2D camera;
+    private static bool isInventoryOpen = false;
+    private static InventoryManager inventoryManager;
+    private List<ItemEntity> worldItems;
 
     public static void Init()
     {
         Vector2 startPos = new Vector2(width / 2, height / 2);
         player = new Player(startPos);  
         camera = new Camera2D(new Vector2(width / 2, height / 2), new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f), 0.0f, 3.0f);
-        
+        inventoryManager = new InventoryManager(width, height);
     }
 
     public static void Draw()
     {
         Raylib.BeginDrawing();
             Raylib.ClearBackground(Color.SkyBlue);
+            
             Raylib.BeginMode2D(camera);
-            DrawPlayerUI();
-            player.Draw();
+                player.Draw();    
             Raylib.EndMode2D();
+            
+            DrawPlayerUI();
+            
+            if (isInventoryOpen)
+            {
+                inventoryManager.Draw();
+            }
         Raylib.EndDrawing();
-        
     }
 
     public static void Update()
@@ -45,7 +55,16 @@ public class Game
         player.Move(10);
         player.Update();
         camera.Target = new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f);
+        if (Raylib.IsKeyPressed(KeyboardKey.Tab) || Raylib.IsKeyPressed(KeyboardKey.I))
+        {
+            isInventoryOpen = !isInventoryOpen;
+        }
 
+        if (isInventoryOpen)
+        {
+            inventoryManager.Update();
+            return; 
+        }
     }   
 
     private static void DrawPlayerUI()
