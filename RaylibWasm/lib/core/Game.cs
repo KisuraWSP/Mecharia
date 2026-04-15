@@ -103,25 +103,40 @@ public class Game
     public static void Draw()
     {
         Raylib.BeginDrawing();
-            Raylib.ClearBackground(Color.SkyBlue);
+        
+        // Use a default clear background
+        Raylib.ClearBackground(Color.SkyBlue);
             
-            if (CurrentGameState == GameState.HUB_WORLD)
-            {
-                Raylib.BeginMode2D(camera);
-                    Hub.DrawWorld(player.GetPlayerPosition());
-                    player.Draw(); 
-                Raylib.EndMode2D();
-                
-                DrawPlayerUI(); 
-                
-                // Pass the camera in so it can calculate the text positions!
-                Hub.DrawUI(camera, player.GetPlayerPosition()); 
-            }
+        if (CurrentGameState == GameState.HUB_WORLD)
+        {
+            Raylib.BeginMode2D(camera);
+                Hub.DrawWorld(player.GetPlayerPosition());
+                player.Draw(); 
+            Raylib.EndMode2D();
             
-            if (isInventoryOpen)
-            {
-                inventoryManager.Draw();
-            }
+            DrawPlayerUI(); 
+            
+            // Pass the camera in so it can calculate the text positions!
+            Hub.DrawUI(camera, player.GetPlayerPosition()); 
+        }
+        else if (CurrentGameState == GameState.GAME) // <--- THIS WAS MISSING
+        {
+            // Draw Level
+            Raylib.BeginMode2D(camera);
+                CurrentLevel.DrawWorldItems(); // Draw items on ground
+                player.Draw();  
+                foreach (var enemy in enemies) enemy.Draw();
+            Raylib.EndMode2D();
+            
+            DrawPlayerUI();
+            CurrentLevel.DrawUI(); // Draw Round Animations Over Screen
+        }
+            
+        if (isInventoryOpen)
+        {
+            inventoryManager.Draw();
+        }
+            
         Raylib.EndDrawing();
     }
 
@@ -181,42 +196,6 @@ public class Game
                 }
             }
         }
-
-        // // --- ENEMY UPDATE & COLLISION LOGIC ---
-        // if (CurrentLevel != null && !CurrentLevel.IsCompleted)
-        // {
-        //     CurrentLevel.Update(enemies, player.GetPlayerPosition(), CurrentRun);
-        // }
-        // else if (CurrentLevel != null && CurrentLevel.IsCompleted)
-        // {
-        //     // The player won the level! 
-        //     CurrentRun.CompleteLevel(CurrentLevel.Type);
-            
-        //     // Here you would transition the screen back to the Hub World
-        //     // Example: gameState = GameState.HUB;
-        // }
-
-
-        // // --- EXISTING ENEMY UPDATE & COLLISION LOGIC ---
-        // // The enemies list is now populated automatically by CurrentLevel.Update()
-        // for (int i = enemies.Count - 1; i >= 0; i--)
-        // {
-        //     Enemy enemy = enemies[i];
-        //     enemy.Update(player.GetPlayerPosition());
-
-        //     if (player.isAttacking)
-        //     {
-        //         if (Raylib.CheckCollisionRecs(player.AttackHitbox, enemy.Collider))
-        //         {
-        //             enemy.TakeDamage(1); 
-        //         }
-        //     }
-
-        //     if (enemy.IsDead)
-        //     {
-        //         enemies.RemoveAt(i);
-        //     }
-        // }
 
         if (CurrentLevel != null && !CurrentLevel.IsCompleted)
         {
