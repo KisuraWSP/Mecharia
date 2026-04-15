@@ -37,7 +37,6 @@ public class Run
         EnemyDifficultyMultiplier += 0.2f; 
         
         // Move back to Hub World after a level (per GDD Page 14)
-        CurrentLevelNode = LevelType.HUB_WORLD;
     }
 
     public void StartNextLevel(LevelType nextLevel)

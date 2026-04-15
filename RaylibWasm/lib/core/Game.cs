@@ -11,7 +11,8 @@ public enum GameState
     MAIN_MENU = 0,
     GAME = 1,
     PAUSE = 2,
-    SETTINGS = 3
+    SETTINGS = 3,
+    HUB_WORLD = 4
 }
 
 public class Game
@@ -33,6 +34,7 @@ public class Game
     public static Run CurrentRun;
     public static Level CurrentLevel;
     public static HubWorld Hub;
+    public static GameState CurrentGameState = GameState.GAME;
 
     public static void Init()
     {
@@ -61,18 +63,20 @@ public class Game
         // 1. Initialize the Game Managers
         CurrentRun = new Run(); // Starts the seeded RNG
         Hub = new HubWorld();
-        CurrentLevel = new Level(LevelType.LEVEL1);
+        CurrentLevel = new Level(LevelType.LEVEL1, maxRounds : 2);
         
         // change these to cross platform paths
         // also very buggy system rework this
         EnemyProfile standardMachine = new EnemyProfile(EnemyType.StandardMachine, maxHealth: 50, speed: 2.0f, attackRange: 60f)
             .AddSingleFileAnimation(EnemyState.ATTACK, "Resources/sprite/enemies/knight/ATTACK.png", frameCount: 10)
-            .AddSingleFileAnimation(EnemyState.IDLE, "Resources/sprite/enemies/knight/IDLE.png", frameCount: 4);
+            .AddSingleFileAnimation(EnemyState.IDLE, "Resources/sprite/enemies/knight/IDLE.png", frameCount: 4)
+            .AddSingleFileAnimation(EnemyState.DEAD, "Resources/sprite/enemies/knight/IDLE.png", frameCount: 4);
 
         // 2. Define the boss (using a Full Grid Sheet where frames are 64x64 pixels)
         EnemyProfile samuraiBoss = new EnemyProfile(EnemyType.EliteSamuraiBot, maxHealth: 300, speed: 3.5f, attackRange: 80f)
             .AddSheetAnimation(EnemyState.IDLE, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 0)
-            .AddSheetAnimation(EnemyState.RUN, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 1);
+            .AddSheetAnimation(EnemyState.RUN, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 1)
+            .AddSheetAnimation(EnemyState.DEAD, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 1);
 
         // 3. Spawn them!
         Round round1 = new Round { IsRandomized = false };
@@ -112,9 +116,21 @@ public class Game
 
     public static void Update()
     {
-        player.Move(10);
-        player.Update();
-        camera.Target = new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f);
+        if (CurrentGameState == GameState.HUB_WORLD)
+        {
+            Hub.Update(player.GetPlayerPosition());
+            player.Move(10);
+            player.Update();
+            // Press Enter to start the next level
+            if (Raylib.IsKeyPressed(KeyboardKey.Enter))
+            {
+                CurrentGameState = GameState.GAME;
+                CurrentLevel.TriggerRoundAnimation(); // Show round 1 banner!
+            }
+            return;
+        }
+
+        // Inventory UI Logic
         if (Raylib.IsKeyPressed(KeyboardKey.Tab) || Raylib.IsKeyPressed(KeyboardKey.I))
         {
             isInventoryOpen = !isInventoryOpen;
@@ -126,41 +142,84 @@ public class Game
             return; 
         }
 
-        // --- ENEMY UPDATE & COLLISION LOGIC ---
-        if (CurrentLevel != null && !CurrentLevel.IsCompleted)
+        // --- LOOT PICKUP LOGIC ---
+        for (int i = CurrentLevel.GroundItems.Count - 1; i >= 0; i--)
         {
-            CurrentLevel.Update(enemies, player.GetPlayerPosition(), CurrentRun);
-        }
-        else if (CurrentLevel != null && CurrentLevel.IsCompleted)
-        {
-            // The player won the level! 
-            CurrentRun.CompleteLevel(CurrentLevel.Type);
+            var groundItem = CurrentLevel.GroundItems[i];
             
-            // Here you would transition the screen back to the Hub World
-            // Example: gameState = GameState.HUB;
+            // If player touches the item, try to add it to inventory
+            if (Raylib.CheckCollisionRecs(player.Collider, groundItem.Bounds))
+            {
+                InventoryItem invItem = new InventoryItem(groundItem.Name, groundItem.GridWidth, groundItem.GridHeight, groundItem.TexturePath);
+                
+                // Only remove it from the floor if there is room in the inventory grid!
+                if (inventoryManager.TryAddItem(invItem)) 
+                {
+                    CurrentLevel.GroundItems.RemoveAt(i);
+                }
+            }
         }
 
+        // // --- ENEMY UPDATE & COLLISION LOGIC ---
+        // if (CurrentLevel != null && !CurrentLevel.IsCompleted)
+        // {
+        //     CurrentLevel.Update(enemies, player.GetPlayerPosition(), CurrentRun);
+        // }
+        // else if (CurrentLevel != null && CurrentLevel.IsCompleted)
+        // {
+        //     // The player won the level! 
+        //     CurrentRun.CompleteLevel(CurrentLevel.Type);
+            
+        //     // Here you would transition the screen back to the Hub World
+        //     // Example: gameState = GameState.HUB;
+        // }
 
-        // --- EXISTING ENEMY UPDATE & COLLISION LOGIC ---
-        // The enemies list is now populated automatically by CurrentLevel.Update()
+
+        // // --- EXISTING ENEMY UPDATE & COLLISION LOGIC ---
+        // // The enemies list is now populated automatically by CurrentLevel.Update()
+        // for (int i = enemies.Count - 1; i >= 0; i--)
+        // {
+        //     Enemy enemy = enemies[i];
+        //     enemy.Update(player.GetPlayerPosition());
+
+        //     if (player.isAttacking)
+        //     {
+        //         if (Raylib.CheckCollisionRecs(player.AttackHitbox, enemy.Collider))
+        //         {
+        //             enemy.TakeDamage(1); 
+        //         }
+        //     }
+
+        //     if (enemy.IsDead)
+        //     {
+        //         enemies.RemoveAt(i);
+        //     }
+        // }
+
+        // --- ENEMY UPDATE & LOOT DROPPING ---
         for (int i = enemies.Count - 1; i >= 0; i--)
         {
             Enemy enemy = enemies[i];
             enemy.Update(player.GetPlayerPosition());
 
-            if (player.isAttacking)
+            if (player.isAttacking && Raylib.CheckCollisionRecs(player.AttackHitbox, enemy.Collider))
             {
-                if (Raylib.CheckCollisionRecs(player.AttackHitbox, enemy.Collider))
-                {
-                    enemy.TakeDamage(1); 
-                }
+                enemy.TakeDamage(1); 
             }
 
             if (enemy.IsDead)
             {
+                // RUN RNG DROP CHECK: 50% chance to drop loot
+                if (CurrentRun.RNG.NextSingle() <= CurrentRun.ItemDropChance)
+                {
+                    // Drops an oblong 1x2 "Machine Scrap" on the ground
+                    CurrentLevel.GroundItems.Add(new ItemEntity("Machine Scrap", enemy.Position.X, enemy.Position.Y + 20, 1, 2, "Resources/scrap.png"));
+                }
                 enemies.RemoveAt(i);
             }
         }
+
+        CurrentLevel.Update(enemies, player.GetPlayerPosition(), CurrentRun);
     }   
 
     private static void DrawPlayerUI()

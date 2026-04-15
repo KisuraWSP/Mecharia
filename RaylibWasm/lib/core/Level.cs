@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Raylib_cs;
@@ -12,7 +13,6 @@ public enum LevelType
     LEVEL3 = 4,
     LEVEL4 = 5,
     LEVEL5 = 6,
-    HUB_WORLD = 7
 }
 
 public class Round
@@ -25,25 +25,43 @@ public class Level
 {
     public LevelType Type { get; private set; }
     public bool IsCompleted { get; private set; } = false;
-
-    // GDD Feature: Item Requirements and Restrictions
-    public List<string> RequiredItemsToEnter { get; private set; } = new List<string>();
-    public List<string> RestrictedItems { get; private set; } = new List<string>();
+    public int MaxRounds { get; private set; } // NEW API
+    public List<ItemEntity> GroundItems { get; private set; } = new List<ItemEntity>();
 
     private List<Round> rounds = new List<Round>();
     private int currentRoundIndex = 0;
-    
     private float spawnTimer = 0f;
     private int activeHordeIndex = 0;
 
-    public Level(LevelType type)
+    // Animation Variables
+    private float bannerAlpha = 0f;
+    private float bannerTimer = 0f;
+    private string bannerText = "";
+
+    public Level(LevelType type, int maxRounds)
     {
         Type = type;
+        MaxRounds = maxRounds;
     }
 
     public void AddRound(Round round)
     {
-        rounds.Add(round);
+        if (rounds.Count < MaxRounds)
+        {
+            rounds.Add(round);
+        }
+        else
+        {
+            Console.WriteLine($"WARNING: Cannot add more rounds. Level max is {MaxRounds}.");
+        }
+    }
+
+    public void TriggerRoundAnimation()
+    {
+        int visualRound = currentRoundIndex + 1;
+        bannerText = $"ROUND {visualRound} / {MaxRounds}";
+        bannerAlpha = 1.0f; // Reset transparency to fully visible
+        bannerTimer = 3.0f; // Stay on screen for 3 seconds
     }
 
     public void Update(List<Enemy> activeGameEnemies, Vector2 playerPos, Run currentRun)
@@ -54,105 +72,127 @@ public class Level
             return;
         }
 
-        Round currentRound = rounds[currentRoundIndex];
-
-        // Randomize the round once when it starts if the flag is set
-        if (currentRound.IsRandomized && activeHordeIndex == 0 && activeGameEnemies.Count == 0)
+        // Handle animation fade out
+        if (bannerTimer > 0)
         {
-            ShuffleHordes(currentRound.Hordes, currentRun.RNG);
-            currentRound.IsRandomized = false; // Prevent re-shuffling every frame
+            bannerTimer -= Raylib.GetFrameTime();
+            if (bannerTimer <= 1.0f) // Fade out over the last second
+            {
+                bannerAlpha = bannerTimer; 
+            }
         }
 
+        // --- Keep your existing Spawning & Shuffle Logic here! ---
+        Round currentRound = rounds[currentRoundIndex];
         bool allHordesSpawned = true;
 
         if (activeHordeIndex < currentRound.Hordes.Count)
         {
             allHordesSpawned = false;
             Horde currentHorde = currentRound.Hordes[activeHordeIndex];
-
             spawnTimer -= Raylib.GetFrameTime();
             if (spawnTimer <= 0)
             {
                 if (!currentHorde.IsFinishedSpawning)
                 {
-                    // Spawn off-screen
                     int dir = currentRun.RNG.Next(0, 2) == 0 ? -1 : 1; 
                     Vector2 spawnPos = new Vector2(playerPos.X + (dir * 600f), playerPos.Y);
-                    
                     activeGameEnemies.Add(currentHorde.SpawnNext(spawnPos, currentRun.EnemyDifficultyMultiplier));
-                    
-                    // Use this horde's specific interval
                     spawnTimer = currentHorde.SpawnInterval; 
                 }
                 else
                 {
-                    // Move to the next horde in the round
                     activeHordeIndex++;
                 }
             }
         }
 
-        // If round is completely spawned and player killed them all, advance round
         if (allHordesSpawned && activeGameEnemies.Count == 0)
         {
             currentRoundIndex++;
             activeHordeIndex = 0;
-            spawnTimer = 4.0f; // Brief pause between rounds
+            spawnTimer = 4.0f;
+            
+            if (currentRoundIndex < rounds.Count) 
+            {
+                TriggerRoundAnimation(); // Pop the UI up for the next round!
+            }
         }
     }
 
-    // Utility to randomize the order hordes spawn in
-    private void ShuffleHordes(List<Horde> hordes, System.Random rng)
+    public void DrawWorldItems()
     {
-        int n = hordes.Count;  
-        while (n > 1) {  
-            n--;  
-            int k = rng.Next(n + 1);  
-            Horde value = hordes[k];  
-            hordes[k] = hordes[n];  
-            hordes[n] = value;  
-        }  
+        foreach (var item in GroundItems)
+        {
+            item.Draw();
+        }
+    }
+
+    public void DrawUI()
+    {
+        if (bannerAlpha > 0)
+        {
+            // Create a fading effect using the Alpha channel
+            Color textColor = Raylib.Fade(Color.Red, bannerAlpha);
+            Color shadowColor = Raylib.Fade(Color.Black, bannerAlpha);
+            
+            // Slide animation: Text moves slightly upwards as it fades
+            int yPos = (Game.height / 4) + (int)((1.0f - bannerAlpha) * 30); 
+            int textWidth = Raylib.MeasureText(bannerText, 60);
+            int xPos = (Game.width / 2) - (textWidth / 2);
+
+            Raylib.DrawText(bannerText, xPos + 4, yPos + 4, 60, shadowColor); // Shadow
+            Raylib.DrawText(bannerText, xPos, yPos, 60, textColor); // Main Text
+        }
     }
 }
-
 public class HubWorld
 {
-    // Main world before a level starts. Interface unlocked after tutorial.
     public bool IsCraftingMenuOpen { get; private set; } = false;
+    
+    // Primitive zones
+    private Rectangle craftingStation = new Rectangle(300, Game.height / 2 - 50, 150, 100);
+    private Rectangle farmingArea = new Rectangle(700, Game.height / 2 - 20, 200, 70);
 
-    public void Update()
+    public void Update(Vector2 playerPos)
     {
-        // Logic for interacting with automation machines, farming, and crafting
+        // Check for interactions when pressing 'E'
+        if (Raylib.IsKeyPressed(KeyboardKey.E))
+        {
+            if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
+            {
+                IsCraftingMenuOpen = !IsCraftingMenuOpen; // Toggle menu
+            }
+            // Add farming logic here later
+        }
     }
 
-    public void Draw()
+    public void Draw(Vector2 playerPos)
     {
-        // Draw the safe zone, machines, and crafting UI
-    }
+        // Draw the Hub background
+        Raylib.ClearBackground(Color.DarkBlue);
+        Raylib.DrawRectangle(0, Game.height / 2 + 50, Game.width, Game.height, new Color(20, 40, 30, 255)); // Ground
 
-    // GDD: Checks item restrictions & requirements to encourage horizon broadening
-    public bool TryEnterLevel(Level targetLevel, InventoryManager playerInventory)
-    {
-        // 1. Check Requirements (Items the player MUST have)
-        foreach (var reqItem in targetLevel.RequiredItemsToEnter)
+        // Draw Crafting Station
+        Raylib.DrawRectangleRec(craftingStation, Color.Purple);
+        Raylib.DrawText("CRAFTING STATION", (int)craftingStation.X + 10, (int)craftingStation.Y - 20, 12, Color.White);
+
+        // Draw Farming Area
+        Raylib.DrawRectangleRec(farmingArea, Color.Brown);
+        Raylib.DrawText("AUTOMATION FARM", (int)farmingArea.X + 20, (int)farmingArea.Y - 20, 12, Color.White);
+
+        // Interaction Prompts
+        if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
+            Raylib.DrawText("[E] TO CRAFT", (int)playerPos.X - 20, (int)playerPos.Y - 40, 20, Color.Yellow);
+
+        if (Raylib.CheckCollisionPointRec(playerPos, farmingArea))
+            Raylib.DrawText("[E] TO MANAGE FARM", (int)playerPos.X - 50, (int)playerPos.Y - 40, 20, Color.Yellow);
+            
+        if (IsCraftingMenuOpen)
         {
-            if (!playerInventory.Items.Exists(i => i.Name == reqItem))
-            {
-                // UI should show: "Missing required item: " + reqItem
-                return false; 
-            }
+            // Placeholder for your actual UI menu later
+            Raylib.DrawRectangle(Game.width/2 - 200, Game.height/2 - 150, 400, 300, new Color(0, 0, 0, 200));
+            Raylib.DrawText("CRAFTING UI PLACEHOLDER", Game.width/2 - 120, Game.height/2 - 10, 20, Color.White);
         }
-
-        // 2. Check Restrictions (Items the player CANNOT bring)
-        foreach (var restrictedItem in targetLevel.RestrictedItems)
-        {
-            if (playerInventory.Items.Exists(i => i.Name == restrictedItem))
-            {
-                // UI should show: "You cannot bring " + restrictedItem + " into this level!"
-                return false;
-            }
-        }
-
-        return true; // Requirements met, restrictions obeyed!
     }
 }
