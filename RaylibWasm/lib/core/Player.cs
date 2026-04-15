@@ -210,4 +210,10 @@ public class Player
     {
         return position;
     }
+
+    public void SetPosition(Vector2 newPos)
+    {
+        position = newPos;
+        Collider = new Rectangle(position.X, position.Y, frameRec.Width, frameRec.Height);
+    }
 }

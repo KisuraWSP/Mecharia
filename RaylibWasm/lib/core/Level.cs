@@ -149,46 +149,59 @@ public class Level
 public class HubWorld
 {
     public bool IsCraftingMenuOpen { get; private set; } = false;
+    public bool WantsToStartLevel { get; private set; } = false; // NEW!
     
-    private Rectangle craftingStation = new Rectangle(300, Game.height / 2 - 50, 150, 100);
-    private Rectangle farmingArea = new Rectangle(700, Game.height / 2 - 20, 200, 70);
+    private Rectangle craftingStation = new Rectangle(420, Game.height / 2 - 50, 100, 100);
+    private Rectangle farmingArea = new Rectangle(580, Game.height / 2 - 20, 120, 70);
+    
+    // NEW: The door to the combat levels
+    private Rectangle exitZone = new Rectangle(800, Game.height / 2 - 50, 80, 100); 
 
     public void Update(Vector2 playerPos)
     {
+        WantsToStartLevel = false; // Reset every frame
+
         if (Raylib.IsKeyPressed(KeyboardKey.E))
         {
             if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
-            {
                 IsCraftingMenuOpen = !IsCraftingMenuOpen; 
-            }
+                
+            // NEW: Trigger the level start!
+            if (Raylib.CheckCollisionPointRec(playerPos, exitZone))
+                WantsToStartLevel = true;
         }
     }
 
-    // --- NEW: Draws everything that exists in the physical world ---
     public void DrawWorld(Vector2 playerPos)
     {
         Raylib.ClearBackground(Color.DarkBlue);
         Raylib.DrawRectangle(0, Game.height / 2 + 50, Game.width, Game.height, new Color(20, 40, 30, 255)); 
 
         Raylib.DrawRectangleRec(craftingStation, Color.Purple);
-        Raylib.DrawText("CRAFTING STATION", (int)craftingStation.X + 10, (int)craftingStation.Y - 20, 12, Color.White);
-
         Raylib.DrawRectangleRec(farmingArea, Color.Brown);
-        Raylib.DrawText("AUTOMATION FARM", (int)farmingArea.X + 20, (int)farmingArea.Y - 20, 12, Color.White);
-
-        if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
-            Raylib.DrawText("[E] TO CRAFT", (int)playerPos.X - 20, (int)playerPos.Y - 40, 20, Color.Yellow);
-
-        if (Raylib.CheckCollisionPointRec(playerPos, farmingArea))
-            Raylib.DrawText("[E] TO MANAGE FARM", (int)playerPos.X - 50, (int)playerPos.Y - 40, 20, Color.Yellow);
+        
+        // Draw the exit zone
+        Raylib.DrawRectangleRec(exitZone, Color.DarkGreen);
     }
 
-    // --- NEW: Draws the static menus directly to the screen ---
-    public void DrawUI()
+    public void DrawUI(Camera2D camera, Vector2 playerPos)
     {
+        Vector2 craftTextPos = Raylib.GetWorldToScreen2D(new Vector2(craftingStation.X, craftingStation.Y - 20), camera);
+        Vector2 farmTextPos = Raylib.GetWorldToScreen2D(new Vector2(farmingArea.X, farmingArea.Y - 20), camera);
+        Vector2 exitTextPos = Raylib.GetWorldToScreen2D(new Vector2(exitZone.X, exitZone.Y - 20), camera);
+
+        Raylib.DrawText("CRAFTING STATION", (int)craftTextPos.X, (int)craftTextPos.Y, 20, Color.White);
+        Raylib.DrawText("AUTOMATION FARM", (int)farmTextPos.X, (int)farmTextPos.Y, 20, Color.White);
+        Raylib.DrawText("DEPLOY", (int)exitTextPos.X, (int)exitTextPos.Y, 20, Color.White);
+
+        if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
+            Raylib.DrawText("[E] TO CRAFT", (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 20, playerPos.Y - 40), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 20, playerPos.Y - 40), camera).Y, 20, Color.Yellow);
+
+        if (Raylib.CheckCollisionPointRec(playerPos, exitZone))
+            Raylib.DrawText("[E] TO ENTER LEVEL", (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 50, playerPos.Y - 40), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 50, playerPos.Y - 40), camera).Y, 20, Color.Yellow);
+
         if (IsCraftingMenuOpen)
         {
-            // Now this perfectly fits the screen!
             Raylib.DrawRectangle(Game.width/2 - 200, Game.height/2 - 150, 400, 300, new Color(0, 0, 0, 200));
             Raylib.DrawText("CRAFTING UI PLACEHOLDER", Game.width/2 - 120, Game.height/2 - 10, 20, Color.White);
         }
