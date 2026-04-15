@@ -150,47 +150,45 @@ public class HubWorld
 {
     public bool IsCraftingMenuOpen { get; private set; } = false;
     
-    // Primitive zones
     private Rectangle craftingStation = new Rectangle(300, Game.height / 2 - 50, 150, 100);
     private Rectangle farmingArea = new Rectangle(700, Game.height / 2 - 20, 200, 70);
 
     public void Update(Vector2 playerPos)
     {
-        // Check for interactions when pressing 'E'
         if (Raylib.IsKeyPressed(KeyboardKey.E))
         {
             if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
             {
-                IsCraftingMenuOpen = !IsCraftingMenuOpen; // Toggle menu
+                IsCraftingMenuOpen = !IsCraftingMenuOpen; 
             }
-            // Add farming logic here later
         }
     }
 
-    public void Draw(Vector2 playerPos)
+    // --- NEW: Draws everything that exists in the physical world ---
+    public void DrawWorld(Vector2 playerPos)
     {
-        // Draw the Hub background
         Raylib.ClearBackground(Color.DarkBlue);
-        Raylib.DrawRectangle(0, Game.height / 2 + 50, Game.width, Game.height, new Color(20, 40, 30, 255)); // Ground
+        Raylib.DrawRectangle(0, Game.height / 2 + 50, Game.width, Game.height, new Color(20, 40, 30, 255)); 
 
-        // Draw Crafting Station
         Raylib.DrawRectangleRec(craftingStation, Color.Purple);
         Raylib.DrawText("CRAFTING STATION", (int)craftingStation.X + 10, (int)craftingStation.Y - 20, 12, Color.White);
 
-        // Draw Farming Area
         Raylib.DrawRectangleRec(farmingArea, Color.Brown);
         Raylib.DrawText("AUTOMATION FARM", (int)farmingArea.X + 20, (int)farmingArea.Y - 20, 12, Color.White);
 
-        // Interaction Prompts
         if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
             Raylib.DrawText("[E] TO CRAFT", (int)playerPos.X - 20, (int)playerPos.Y - 40, 20, Color.Yellow);
 
         if (Raylib.CheckCollisionPointRec(playerPos, farmingArea))
             Raylib.DrawText("[E] TO MANAGE FARM", (int)playerPos.X - 50, (int)playerPos.Y - 40, 20, Color.Yellow);
-            
+    }
+
+    // --- NEW: Draws the static menus directly to the screen ---
+    public void DrawUI()
+    {
         if (IsCraftingMenuOpen)
         {
-            // Placeholder for your actual UI menu later
+            // Now this perfectly fits the screen!
             Raylib.DrawRectangle(Game.width/2 - 200, Game.height/2 - 150, 400, 300, new Color(0, 0, 0, 200));
             Raylib.DrawText("CRAFTING UI PLACEHOLDER", Game.width/2 - 120, Game.height/2 - 10, 20, Color.White);
         }

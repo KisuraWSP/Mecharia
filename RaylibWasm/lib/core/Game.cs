@@ -34,7 +34,7 @@ public class Game
     public static Run CurrentRun;
     public static Level CurrentLevel;
     public static HubWorld Hub;
-    public static GameState CurrentGameState = GameState.GAME;
+    public static GameState CurrentGameState = GameState.HUB_WORLD;
 
     public static void Init()
     {
@@ -85,7 +85,7 @@ public class Game
 
         // 4. Build Round 2 (A mixed, randomized wave with a boss!)
         Round round2 = new Round { IsRandomized = true };
-        round2.Hordes.Add(new Horde(EnemyType.StandardMachine, standardMachine, amount: 10, HordeBehavior.Mob, spawnInterval: 1.0f));
+        round2.Hordes.Add(new Horde(EnemyType.StandardMachine, standardMachine, amount: 1, HordeBehavior.Mob, spawnInterval: 1.0f));
         round2.Hordes.Add(new Horde(EnemyType.EliteSamuraiBot, samuraiBoss, amount: 1, HordeBehavior.Boss, spawnInterval: 3.0f));
         CurrentLevel.AddRound(round2);
     }
@@ -97,7 +97,8 @@ public class Game
             
             Raylib.BeginMode2D(camera);
                 Raylib.DrawRectangle(13 * CellSize, 5 * CellSize, CellSize, 8 * CellSize, Color.DarkGray);
-                player.Draw();  
+                player.Draw();
+                Hub.DrawWorld(player.GetPlayerPosition());
                 
                 foreach (var enemy in enemies)
                 {
@@ -121,11 +122,14 @@ public class Game
             Hub.Update(player.GetPlayerPosition());
             player.Move(10);
             player.Update();
-            // Press Enter to start the next level
+            
+            // FIX: Make the camera follow the player in the hub world too!
+            camera.Target = new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f);
+
             if (Raylib.IsKeyPressed(KeyboardKey.Enter))
             {
                 CurrentGameState = GameState.GAME;
-                CurrentLevel.TriggerRoundAnimation(); // Show round 1 banner!
+                CurrentLevel.TriggerRoundAnimation(); 
             }
             return;
         }
@@ -141,6 +145,10 @@ public class Game
             inventoryManager.Update();
             return; 
         }
+
+        player.Move(10);
+        player.Update();
+        camera.Target = new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f);
 
         // --- LOOT PICKUP LOGIC ---
         for (int i = CurrentLevel.GroundItems.Count - 1; i >= 0; i--)
