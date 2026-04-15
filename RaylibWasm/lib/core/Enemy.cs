@@ -31,7 +31,7 @@ public enum SpriteSheetLayout
 public class Enemy
 {
     public EnemyProfile Profile { get; private set; }
-    public int Health { get; private set; }
+    public int Health { get; set; }
     public Vector2 Position { get; private set; }
     
     // Collider dynamically reads the active animation config size

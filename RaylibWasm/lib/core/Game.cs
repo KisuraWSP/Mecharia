@@ -30,6 +30,9 @@ public class Game
     // Pathfinding properties
     public static int CellSize = 40; 
     public static Grid WorldGrid;
+    public static Run CurrentRun;
+    public static Level CurrentLevel;
+    public static HubWorld Hub;
 
     public static void Init()
     {
@@ -54,6 +57,11 @@ public class Game
         player = new Player(startPos);  
         camera = new Camera2D(new Vector2(width / 2, height / 2), new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f), 0.0f, 3.0f);
         inventoryManager = new InventoryManager(width, height);
+
+        // 1. Initialize the Game Managers
+        CurrentRun = new Run(); // Starts the seeded RNG
+        Hub = new HubWorld();
+        CurrentLevel = new Level(LevelType.LEVEL1);
         
         // change these to cross platform paths
         // also very buggy system rework this
@@ -67,8 +75,15 @@ public class Game
             .AddSheetAnimation(EnemyState.RUN, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 1);
 
         // 3. Spawn them!
-        enemies.Add(new Enemy(new Vector2(400, 360), standardMachine));
-        enemies.Add(new Enemy(new Vector2(800, 360), samuraiBoss));
+        Round round1 = new Round { IsRandomized = false };
+        round1.Hordes.Add(new Horde(EnemyType.StandardMachine, standardMachine, amount: 5, HordeBehavior.Mob, spawnInterval: 1.5f));
+        CurrentLevel.AddRound(round1);
+
+        // 4. Build Round 2 (A mixed, randomized wave with a boss!)
+        Round round2 = new Round { IsRandomized = true };
+        round2.Hordes.Add(new Horde(EnemyType.StandardMachine, standardMachine, amount: 10, HordeBehavior.Mob, spawnInterval: 1.0f));
+        round2.Hordes.Add(new Horde(EnemyType.EliteSamuraiBot, samuraiBoss, amount: 1, HordeBehavior.Boss, spawnInterval: 3.0f));
+        CurrentLevel.AddRound(round2);
     }
 
     public static void Draw()
@@ -112,11 +127,25 @@ public class Game
         }
 
         // --- ENEMY UPDATE & COLLISION LOGIC ---
+        if (CurrentLevel != null && !CurrentLevel.IsCompleted)
+        {
+            CurrentLevel.Update(enemies, player.GetPlayerPosition(), CurrentRun);
+        }
+        else if (CurrentLevel != null && CurrentLevel.IsCompleted)
+        {
+            // The player won the level! 
+            CurrentRun.CompleteLevel(CurrentLevel.Type);
+            
+            // Here you would transition the screen back to the Hub World
+            // Example: gameState = GameState.HUB;
+        }
+
+
+        // --- EXISTING ENEMY UPDATE & COLLISION LOGIC ---
+        // The enemies list is now populated automatically by CurrentLevel.Update()
         for (int i = enemies.Count - 1; i >= 0; i--)
         {
             Enemy enemy = enemies[i];
-            
-            // Pass the WorldGrid into the enemy update
             enemy.Update(player.GetPlayerPosition());
 
             if (player.isAttacking)

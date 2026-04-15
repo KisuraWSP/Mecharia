@@ -1,11 +1,47 @@
+using System;
+using System.Collections.Generic;
 
 namespace lib.core;
 
-class Run
+public class Run
 {
-    // This is the main class that gets invoked when you begin a run 
-    // in the game
-    // a run by default will have a set amount of levels
-    // but this will tell the game to rank up difficulty of enemies
-    // and increase/decrease spawn rate of items
+    public int Seed { get; private set; }
+    public Random RNG { get; private set; }
+    
+    // GDD: "rank up difficulty of enemies and increase/decrease spawn rate of items"
+    public float EnemyDifficultyMultiplier { get; private set; } = 1.0f;
+    public float ItemDropChance { get; private set; } = 0.5f;
+
+    // Tracks the set amount of levels
+    public LevelType CurrentLevelNode { get; private set; }
+    public List<LevelType> CompletedLevels { get; private set; } = new List<LevelType>();
+
+    public Run(int? specificSeed = null)
+    {
+        Seed = specificSeed ?? new Random().Next();
+        RNG = new Random(Seed);
+        
+        // Base starting point
+        CurrentLevelNode = LevelType.TUTORIAL;
+
+        // Seed mathematically determines starting item drops and difficulty
+        EnemyDifficultyMultiplier = 0.8f + (RNG.NextSingle() * 0.5f); 
+        ItemDropChance = 0.3f + (RNG.NextSingle() * 0.4f); 
+    }
+
+    public void CompleteLevel(LevelType levelCompleted)
+    {
+        CompletedLevels.Add(levelCompleted);
+        
+        // Rank up difficulty as the run progresses
+        EnemyDifficultyMultiplier += 0.2f; 
+        
+        // Move back to Hub World after a level (per GDD Page 14)
+        CurrentLevelNode = LevelType.HUB_WORLD;
+    }
+
+    public void StartNextLevel(LevelType nextLevel)
+    {
+        CurrentLevelNode = nextLevel;
+    }
 }

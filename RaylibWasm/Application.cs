@@ -1,6 +1,5 @@
 ﻿using System.Runtime.InteropServices.JavaScript;
 using Raylib_cs;
-using RayGUI;
 using lib.core;
 
 namespace RaylibWasm
