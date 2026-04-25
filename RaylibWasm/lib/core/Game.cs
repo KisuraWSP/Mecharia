@@ -252,6 +252,11 @@ public class Game
     
     public static void Update()
     {
+        if (CurrentGameState == GameState.MAIN_MENU || CurrentGameState == GameState.SETTINGS)
+        {
+            return; 
+        }
+
         if (CurrentGameState == GameState.CUTSCENE)
         {
             cutsceneManager.Update();
@@ -326,7 +331,7 @@ public class Game
             cutsceneManager.StartCutscene(new List<string> {
                 "ALL LOCAL THREATS PURGED.",
                 "YOU HAVE SUCCESSFULLY CLEARED LEVEL 1.",
-                "THANK YOU FOR PLAYING THE MECHARIA DEMO!",
+                "THANK YOU FOR PLAYING THE MECHARIA!",
                 "RETURNING TO SYSTEM ROOT..."
             });
 

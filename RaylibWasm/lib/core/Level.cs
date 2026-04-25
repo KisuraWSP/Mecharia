@@ -161,11 +161,10 @@ public class HubWorld
     {
         WantsToStartLevel = false;
 
-        // Passive Automation: Generate 1 scrap every 3 seconds
         if (storedScrap < maxScrapStorage)
         {
             farmTimer += Raylib.GetFrameTime();
-            if (farmTimer >= 10.0f)
+            if (farmTimer >= 5.0f)
             {
                 storedScrap++;
                 farmTimer = 0f;
