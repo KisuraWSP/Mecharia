@@ -10,7 +10,7 @@ public class Horde
     public EnemyProfile Profile { get; private set; }
     public int Amount { get; private set; }
     public HordeBehavior Behavior { get; private set; }
-    public float SpawnInterval { get; private set; } // Interval for this specific horde
+    public float SpawnInterval { get; private set; }
 
     public int SpawnedCount { get; private set; } = 0;
     public bool IsFinishedSpawning => SpawnedCount >= Amount;
@@ -30,7 +30,6 @@ public class Horde
 
         Enemy newEnemy = new Enemy(position, Profile);
 
-        // Apply specific behaviors based on your comments
         if (Behavior == HordeBehavior.Boss)
         {
             // Bosses attack with more damage and have heavily scaled health

@@ -43,6 +43,7 @@ public class Game
     private static Texture2D backgroundTexture;
     public static CutsceneManager cutsceneManager;
     public static float gameOverTimer = 0f;
+    public static GameState StateAfterCutscene = GameState.HUB_WORLD;
 
     public static void Init()
     {
@@ -54,10 +55,8 @@ public class Game
         var cellSize = new Size(Distance.FromMeters(1), Distance.FromMeters(1)); 
         var traversalVelocity = Velocity.FromKilometersPerHour(100);
 
-        // Create the grid (Use CreateGridWithLateralAndDiagonalConnections if you want diagonal movement!)
         WorldGrid = Grid.CreateGridWithLateralConnections(gridSize, cellSize, traversalVelocity);
 
-        // 2. Create a fake "wall" right in the middle of the screen by DISCONNECTING the nodes
         for (int y = 5; y < 13; y++)
         {
             WorldGrid.DisconnectNode(new GridPosition(13, y));
@@ -68,21 +67,17 @@ public class Game
         camera = new Camera2D(new Vector2(width / 2, height / 2), new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f), 0.0f, 3.0f);
         inventoryManager = new InventoryManager(width, height);
 
-        // 1. Initialize the Game Managers
-        CurrentRun = new Run(); // Starts the seeded RNG
+        CurrentRun = new Run();
         Hub = new HubWorld();
         cutsceneManager = new CutsceneManager();
         parallaxBackground = new ParallaxBackground();
         backgroundTexture = Raylib.LoadTexture("Resources/bg/background.jpg");
         
-        // change these to cross platform paths
-        // also very buggy system rework this
         standardMachine = new EnemyProfile(EnemyType.StandardMachine, maxHealth: 50, speed: 2.0f, attackRange: 60f)
             .AddSingleFileAnimation(EnemyState.ATTACK, "Resources/sprite/enemies/knight/ATTACK.png", frameCount: 10)
             .AddSingleFileAnimation(EnemyState.IDLE, "Resources/sprite/enemies/knight/IDLE.png", frameCount: 4)
             .AddSingleFileAnimation(EnemyState.DEAD, "Resources/sprite/enemies/knight/IDLE.png", frameCount: 4);
 
-        // 2. Define the boss (using a Full Grid Sheet where frames are 64x64 pixels)
         samuraiBoss = new EnemyProfile(EnemyType.EliteSamuraiBot, maxHealth: 300, speed: 3.5f, attackRange: 80f)
             .AddSheetAnimation(EnemyState.IDLE, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 0)
             .AddSheetAnimation(EnemyState.RUN, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 1)
@@ -93,39 +88,35 @@ public class Game
 
     public static void LoadNextLevel()
     {
-        // Clear any leftover data from the previous level
         enemies.Clear();
         
-        // CurrentLevelNode tracks if you are on Level 1, 2, 3, etc.
-        CurrentLevel = new Level(CurrentRun.CurrentLevelNode, maxRounds: 2);
+        CurrentLevel = new Level(CurrentRun.CurrentLevelNode, maxRounds: 7);
 
-        Round round1 = new Round { IsRandomized = false };
-        round1.Hordes.Add(new Horde(EnemyType.StandardMachine, standardMachine, amount: 5, HordeBehavior.Mob, spawnInterval: 1.5f));
-        CurrentLevel.AddRound(round1);
+        for (int i = 1; i <= 6; i++)
+        {
+            Round r = new Round { IsRandomized = false };
+            r.Hordes.Add(new Horde(EnemyType.StandardMachine, standardMachine, amount: 2 + i, HordeBehavior.Mob, spawnInterval: 1.2f));
+            CurrentLevel.AddRound(r);
+        }
 
-        Round round2 = new Round { IsRandomized = true };
-        round2.Hordes.Add(new Horde(EnemyType.StandardMachine, standardMachine, amount: 1, HordeBehavior.Mob, spawnInterval: 1.0f));
-        round2.Hordes.Add(new Horde(EnemyType.EliteSamuraiBot, samuraiBoss, amount: 1, HordeBehavior.Boss, spawnInterval: 3.0f));
-        CurrentLevel.AddRound(round2);
+        Round bossRound = new Round { IsRandomized = true };
+        bossRound.Hordes.Add(new Horde(EnemyType.StandardMachine, standardMachine, amount: 5, HordeBehavior.Mob, spawnInterval: 1.0f));
+        bossRound.Hordes.Add(new Horde(EnemyType.EliteSamuraiBot, samuraiBoss, amount: 1, HordeBehavior.Boss, spawnInterval: 3.0f));
+        CurrentLevel.AddRound(bossRound);
     }
 
     public static void Draw()
     {
         Raylib.BeginDrawing();
         
-        // Use a default clear background
         Raylib.ClearBackground(Raylib.GetColor(0x052c46ff));
 
         if (CurrentGameState == GameState.MAIN_MENU)
         {
-            // --- 1. FULLSCREEN BACKGROUND ---
-            // Define what part of the image to use (the whole thing)
             Rectangle sourceRec = new Rectangle(0, 0, backgroundTexture.Width, backgroundTexture.Height);
-            // Define where to draw it (the whole screen)
             Rectangle destRec = new Rectangle(0, 0, width, height);
             Raylib.DrawTexturePro(backgroundTexture, sourceRec, destRec, Vector2.Zero, 0f, Color.White);
 
-            // Add a dark semi-transparent overlay so the UI is easy to read
             Raylib.DrawRectangle(0, 0, width, height, new Color(0, 0, 0, 150));
 
             // --- 2. CORRUPTED TITLE ANIMATION ---
@@ -137,7 +128,6 @@ public class Game
             int titleX = (width / 2) - (titleWidth / 2);
             int titleY = height / 4;
 
-            // Calculate random glitch offsets (30% chance to glitch on any given frame)
             int glitchOffsetX = 0;
             int glitchOffsetY = 0;
             if (Raylib.GetRandomValue(0, 10) > 7) 
@@ -146,14 +136,10 @@ public class Game
                 glitchOffsetY = Raylib.GetRandomValue(-5, 5);
             }
 
-            // Draw Cyan Glitch Layer (Offset slightly)
             Raylib.DrawText(mainTitle, titleX + glitchOffsetX + 4, titleY + glitchOffsetY, titleFontSize, new Color(0, 255, 255, 200));
-            // Draw Magenta Glitch Layer (Offset opposite direction)
             Raylib.DrawText(mainTitle, titleX - glitchOffsetX - 4, titleY - glitchOffsetY, titleFontSize, new Color(255, 0, 255, 200));
-            // Draw Main White Text Layer on top
             Raylib.DrawText(mainTitle, titleX, titleY, titleFontSize, Color.White);
 
-            // Draw Subtitle
             int subFontSize = 20;
             int subWidth = Raylib.MeasureText(subTitle, subFontSize);
             Raylib.DrawText(subTitle, (width / 2) - (subWidth / 2), titleY + 90, subFontSize, Color.LightGray);
@@ -163,12 +149,12 @@ public class Game
             int btnHeight = 50;
             int btnX = (width / 2) - (btnWidth / 2);
 
-            // Make RayGUI text slightly bigger for the menu buttons
             RayGui.GuiSetStyle((int)GuiControl.DEFAULT, (int)GuiDefaultProperty.TEXT_SIZE, 20);
 
             if (RayGui.GuiButton(new Rectangle(btnX, (height / 2) + 20, btnWidth, btnHeight), "START DEPLOYMENT"))
             {
                 CurrentGameState = GameState.CUTSCENE;
+                StateAfterCutscene = GameState.HUB_WORLD;
                 cutsceneManager.StartCutscene(new List<string> {
                     "WELCOME!",
                     "THIS IS PROTOCOL ^&#@@",
@@ -224,8 +210,9 @@ public class Game
             
             DrawPlayerUI();
             CurrentLevel.DrawUI(); 
+            DrawEnemyIndicators();
         }
-        // Add this right at the bottom of your big if/else if chain in Draw()
+        
         else if (CurrentGameState == GameState.GAME_OVER)
         {
             Raylib.ClearBackground(Color.Black);
@@ -239,7 +226,7 @@ public class Game
             // Violent Glitch Effect
             int glitchOffsetX = 0;
             int glitchOffsetY = 0;
-            if (Raylib.GetRandomValue(0, 10) > 4) // Happens very frequently
+            if (Raylib.GetRandomValue(0, 10) > 4)
             {
                 glitchOffsetX = Raylib.GetRandomValue(-10, 10);
                 glitchOffsetY = Raylib.GetRandomValue(-10, 10);
@@ -271,8 +258,7 @@ public class Game
             
             if (cutsceneManager.IsFinished)
             {
-                // Cutscene over, transport to the Hub World!
-                CurrentGameState = GameState.HUB_WORLD;
+                CurrentGameState = StateAfterCutscene; 
             }
             return;
         }
@@ -285,14 +271,12 @@ public class Game
             player.Update();
             camera.Target = new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f);
 
-            // Triggered when the player stands on the green exit zone and hits 'E'
             if (Hub.WantsToStartLevel) 
             {
-                // If they previously beat a level, load a fresh one before jumping in
                 if (CurrentLevel.IsCompleted) LoadNextLevel();
                 
                 CurrentGameState = GameState.GAME;
-                player.SetPosition(new Vector2(width / 2, height / 2)); // Teleport to Level Start
+                player.SetPosition(new Vector2(width / 2, height / 2));
                 CurrentLevel.TriggerRoundAnimation(); 
             }
             return;
@@ -319,12 +303,10 @@ public class Game
         {
             var groundItem = CurrentLevel.GroundItems[i];
             
-            // If player touches the item, try to add it to inventory
             if (Raylib.CheckCollisionRecs(player.Collider, groundItem.Bounds))
             {
                 InventoryItem invItem = new InventoryItem(groundItem.Name, groundItem.GridWidth, groundItem.GridHeight, groundItem.TexturePath);
                 
-                // Only remove it from the floor if there is room in the inventory grid!
                 if (inventoryManager.TryAddItem(invItem)) 
                 {
                     CurrentLevel.GroundItems.RemoveAt(i);
@@ -334,16 +316,25 @@ public class Game
 
         if (CurrentLevel != null && !CurrentLevel.IsCompleted)
         {
-            // Level is active, update spawns!
             CurrentLevel.Update(enemies, player.GetPlayerPosition(), CurrentRun);
         }
         else if (CurrentLevel != null && CurrentLevel.IsCompleted)
         {
-            // LEVEL WON! Transition back to the Hub World!
-            CurrentRun.CompleteLevel(CurrentLevel.Type);
-            CurrentGameState = GameState.HUB_WORLD;
-            player.SetPosition(new Vector2(width / 2, height / 2)); // Teleport back to Hub start
-            return; // Skip the rest of the update this frame
+            CurrentGameState = GameState.CUTSCENE;
+            StateAfterCutscene = GameState.MAIN_MENU;
+            
+            cutsceneManager.StartCutscene(new List<string> {
+                "ALL LOCAL THREATS PURGED.",
+                "YOU HAVE SUCCESSFULLY CLEARED LEVEL 1.",
+                "THANK YOU FOR PLAYING THE MECHARIA DEMO!",
+                "RETURNING TO SYSTEM ROOT..."
+            });
+
+            CurrentRun = new Run(); 
+            Hub = new HubWorld(); 
+            inventoryManager.Clear(); 
+            
+            return; 
         }
 
         // --- ENEMY UPDATE & LOOT DROPPING ---
@@ -361,22 +352,18 @@ public class Game
             // 2. ENEMY DAMAGES PLAYER (NEW!)
             if (!enemy.IsDead && Raylib.CheckCollisionRecs(player.Collider, enemy.Collider))
             {
-                // Bosses do 30 damage, normal mobs do 10
                 int damageAmount = enemy.Profile.Type == EnemyType.EliteSamuraiBot ? 30 : 10;
                 player.TakeDamage(damageAmount);
             }
 
             if (enemy.IsDead)
             {
-                // Check if it's a boss!
                 if (enemy.Profile.Type == EnemyType.EliteSamuraiBot)
                 {
-                    // Bosses always drop a rare 2x2 Energy Core!
                     CurrentLevel.GroundItems.Add(new ItemEntity("Energy Core", enemy.Position.X, enemy.Position.Y + 20, 2, 2, "Resources/core.png"));
                 }
                 else if (CurrentRun.RNG.NextSingle() <= CurrentRun.ItemDropChance)
                 {
-                    // Standard enemies drop 1x2 Scrap
                     CurrentLevel.GroundItems.Add(new ItemEntity("Machine Scrap", enemy.Position.X, enemy.Position.Y + 20, 1, 2, "Resources/scrap.png"));
                 }
                 enemies.RemoveAt(i);
@@ -386,22 +373,20 @@ public class Game
         if (player.Health <= 0 && CurrentGameState == GameState.GAME)
         {
             CurrentGameState = GameState.GAME_OVER;
-            gameOverTimer = 4.0f; // Show the glitch screen for 4 seconds
+            gameOverTimer = 4.0f; 
             
-            inventoryManager.Clear(); // Wipe the player's items
+            inventoryManager.Clear();
             
-            // Wipe the current run completely!
             CurrentRun = new Run(); 
             Hub = new HubWorld(); 
         }
 
-        // --- NEW: GAME OVER LOGIC ---
+        // ---  GAME OVER LOGIC ---
         if (CurrentGameState == GameState.GAME_OVER)
         {
             gameOverTimer -= Raylib.GetFrameTime();
             if (gameOverTimer <= 0)
             {
-                // Resurrect the player and send them to the Hub
                 player.Health = player.MaxHealth;
                 player.SetPosition(new Vector2(width / 2, height / 2)); 
                 CurrentGameState = GameState.HUB_WORLD;
@@ -419,5 +404,42 @@ public class Game
         
         Raylib.DrawRectangleLines(20, 20, 200, 20, Color.White);
         Raylib.DrawText($"HP: {player.Health}/{player.MaxHealth}", 25, 22, 16, Color.Black);
+    }
+
+    private static void DrawEnemyIndicators()
+    {
+        foreach (var enemy in enemies)
+        {
+            if (enemy.IsDead) continue;
+
+            Vector2 screenPos = Raylib.GetWorldToScreen2D(enemy.Position, camera);
+
+            bool isOffScreenLeft = screenPos.X < 0;
+            bool isOffScreenRight = screenPos.X > width;
+
+            if (isOffScreenLeft || isOffScreenRight)
+            {
+                float indicatorY = screenPos.Y;
+                if (indicatorY < 50) indicatorY = 50;
+                if (indicatorY > height - 50) indicatorY = height - 50;
+
+                if (isOffScreenLeft)
+                {
+                    Vector2 tip = new Vector2(20, indicatorY);
+                    Vector2 bottomRight = new Vector2(40, indicatorY + 15);
+                    Vector2 topRight = new Vector2(40, indicatorY - 15);
+                    
+                    Raylib.DrawTriangle(tip, bottomRight, topRight, new Color(255, 0, 0, 200));
+                }
+                else if (isOffScreenRight)
+                {
+                    Vector2 tip = new Vector2(width - 20, indicatorY);
+                    Vector2 topLeft = new Vector2(width - 40, indicatorY - 15);
+                    Vector2 bottomLeft = new Vector2(width - 40, indicatorY + 15);
+                    
+                    Raylib.DrawTriangle(tip, topLeft, bottomLeft, new Color(255, 0, 0, 200));
+                }
+            }
+        }
     }
 }
