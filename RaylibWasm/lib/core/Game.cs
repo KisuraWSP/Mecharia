@@ -117,7 +117,7 @@ public class Game
             DrawPlayerUI(); 
             
             // Pass the camera in so it can calculate the text positions!
-            Hub.DrawUI(camera, player.GetPlayerPosition()); 
+            Hub.DrawUI(camera, player.GetPlayerPosition(), inventoryManager);
         }
         else if (CurrentGameState == GameState.GAME) // <--- THIS WAS MISSING
         {
@@ -145,7 +145,7 @@ public class Game
         // --- 1. HUB WORLD LOGIC ---
         if (CurrentGameState == GameState.HUB_WORLD)
         {
-            Hub.Update(player.GetPlayerPosition());
+            Hub.Update(player.GetPlayerPosition(), inventoryManager, player);
             player.Move(10);
             player.Update();
             camera.Target = new Vector2(player.GetPlayerPosition().X + 20.0f, player.GetPlayerPosition().Y + 20.0f);
@@ -219,14 +219,21 @@ public class Game
 
             if (player.isAttacking && Raylib.CheckCollisionRecs(player.AttackHitbox, enemy.Collider))
             {
-                enemy.TakeDamage(1); 
+                enemy.TakeDamage(player.AttackDamage);
             }
 
             if (enemy.IsDead)
             {
-                if (CurrentRun.RNG.NextSingle() <= CurrentRun.ItemDropChance)
+                // Check if it's a boss!
+                if (enemy.Profile.Type == EnemyType.EliteSamuraiBot)
                 {
-                    CurrentLevel?.GroundItems.Add(new ItemEntity("Machine Scrap", enemy.Position.X, enemy.Position.Y + 20, 1, 2, "Resources/scrap.png"));
+                    // Bosses always drop a rare 2x2 Energy Core!
+                    CurrentLevel.GroundItems.Add(new ItemEntity("Energy Core", enemy.Position.X, enemy.Position.Y + 20, 2, 2, "Resources/core.png"));
+                }
+                else if (CurrentRun.RNG.NextSingle() <= CurrentRun.ItemDropChance)
+                {
+                    // Standard enemies drop 1x2 Scrap
+                    CurrentLevel.GroundItems.Add(new ItemEntity("Machine Scrap", enemy.Position.X, enemy.Position.Y + 20, 1, 2, "Resources/scrap.png"));
                 }
                 enemies.RemoveAt(i);
             }

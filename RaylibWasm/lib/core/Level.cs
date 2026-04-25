@@ -149,26 +149,81 @@ public class Level
 public class HubWorld
 {
     public bool IsCraftingMenuOpen { get; private set; } = false;
-    public bool WantsToStartLevel { get; private set; } = false; // NEW!
+    public bool WantsToStartLevel { get; private set; } = false; 
     
     private Rectangle craftingStation = new Rectangle(420, Game.height / 2 - 50, 100, 100);
     private Rectangle farmingArea = new Rectangle(580, Game.height / 2 - 20, 120, 70);
-    
-    // NEW: The door to the combat levels
     private Rectangle exitZone = new Rectangle(800, Game.height / 2 - 50, 80, 100); 
 
-    public void Update(Vector2 playerPos)
+    // --- AUTOMATION FARM LOGIC ---
+    private float farmTimer = 0f;
+    private int storedScrap = 0;
+    private int maxScrapStorage = 5;
+
+    public void Update(Vector2 playerPos, InventoryManager inventory, Player player)
     {
-        WantsToStartLevel = false; // Reset every frame
+        WantsToStartLevel = false;
+
+        // Passive Automation: Generate 1 scrap every 3 seconds
+        if (storedScrap < maxScrapStorage)
+        {
+            farmTimer += Raylib.GetFrameTime();
+            if (farmTimer >= 3.0f)
+            {
+                storedScrap++;
+                farmTimer = 0f;
+            }
+        }
+
+        // Close UI if you walk away
+        if (!Raylib.CheckCollisionPointRec(playerPos, craftingStation)) IsCraftingMenuOpen = false;
 
         if (Raylib.IsKeyPressed(KeyboardKey.E))
         {
-            if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
-                IsCraftingMenuOpen = !IsCraftingMenuOpen; 
-                
-            // NEW: Trigger the level start!
             if (Raylib.CheckCollisionPointRec(playerPos, exitZone))
                 WantsToStartLevel = true;
+
+            if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
+                IsCraftingMenuOpen = !IsCraftingMenuOpen; 
+
+            // Harvest the farm!
+            if (Raylib.CheckCollisionPointRec(playerPos, farmingArea) && storedScrap > 0)
+            {
+                for (int i = 0; i < storedScrap; i++)
+                {
+                    // Directly inserts items into your inventory grid
+                    inventory.TryAddItem(new InventoryItem("Machine Scrap", 1, 2, "Resources/scrap.png"));
+                }
+                storedScrap = 0;
+            }
+        }
+
+        // --- CRAFTING LOGIC ---
+        if (IsCraftingMenuOpen)
+        {
+            int currentScrap = inventory.GetItemCount("Machine Scrap");
+
+            // Recipe 1: Katana Upgrade (Cost: 3 Scrap)
+            if (Raylib.IsKeyPressed(KeyboardKey.One) && currentScrap >= 3)
+            {
+                if (inventory.TryConsumeItems("Machine Scrap", 3))
+                    player.AttackDamage += 5; // +5 Damage
+            }
+            // Recipe 2: Armor Upgrade (Cost: 5 Scrap)
+            else if (Raylib.IsKeyPressed(KeyboardKey.Two) && currentScrap >= 5)
+            {
+                if (inventory.TryConsumeItems("Machine Scrap", 5))
+                {
+                    player.MaxHealth += 50; 
+                    player.Health += 50; // Heal them slightly as a bonus
+                }
+            }
+            // Recipe 3: Boss Key (Cost: 10 Scrap)
+            else if (Raylib.IsKeyPressed(KeyboardKey.Three) && currentScrap >= 10)
+            {
+                if (inventory.TryConsumeItems("Machine Scrap", 10))
+                    inventory.TryAddItem(new InventoryItem("Boss Key", 2, 2, "Resources/key.png"));
+            }
         }
     }
 
@@ -178,32 +233,43 @@ public class HubWorld
         Raylib.DrawRectangle(0, Game.height / 2 + 50, Game.width, Game.height, new Color(20, 40, 30, 255)); 
 
         Raylib.DrawRectangleRec(craftingStation, Color.Purple);
-        Raylib.DrawRectangleRec(farmingArea, Color.Brown);
-        
-        // Draw the exit zone
         Raylib.DrawRectangleRec(exitZone, Color.DarkGreen);
+        
+        // Farm visually fills up with scrap
+        Raylib.DrawRectangleRec(farmingArea, Color.Brown);
+        float fillRatio = (float)storedScrap / maxScrapStorage;
+        Raylib.DrawRectangle((int)farmingArea.X, (int)farmingArea.Y, (int)(farmingArea.Width * fillRatio), (int)farmingArea.Height, Color.Gold);
     }
 
-    public void DrawUI(Camera2D camera, Vector2 playerPos)
+    public void DrawUI(Camera2D camera, Vector2 playerPos, InventoryManager inventory)
     {
-        Vector2 craftTextPos = Raylib.GetWorldToScreen2D(new Vector2(craftingStation.X, craftingStation.Y - 20), camera);
-        Vector2 farmTextPos = Raylib.GetWorldToScreen2D(new Vector2(farmingArea.X, farmingArea.Y - 20), camera);
-        Vector2 exitTextPos = Raylib.GetWorldToScreen2D(new Vector2(exitZone.X, exitZone.Y - 20), camera);
-
-        Raylib.DrawText("CRAFTING STATION", (int)craftTextPos.X, (int)craftTextPos.Y, 20, Color.White);
-        Raylib.DrawText("AUTOMATION FARM", (int)farmTextPos.X, (int)farmTextPos.Y, 20, Color.White);
-        Raylib.DrawText("DEPLOY", (int)exitTextPos.X, (int)exitTextPos.Y, 20, Color.White);
+        Raylib.DrawText("CRAFTING STATION", (int)Raylib.GetWorldToScreen2D(new Vector2(craftingStation.X, craftingStation.Y - 20), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(craftingStation.X, craftingStation.Y - 20), camera).Y, 20, Color.White);
+        Raylib.DrawText($"FARM ({storedScrap}/{maxScrapStorage})", (int)Raylib.GetWorldToScreen2D(new Vector2(farmingArea.X, farmingArea.Y - 20), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(farmingArea.X, farmingArea.Y - 20), camera).Y, 20, Color.White);
+        Raylib.DrawText("DEPLOY", (int)Raylib.GetWorldToScreen2D(new Vector2(exitZone.X, exitZone.Y - 20), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(exitZone.X, exitZone.Y - 20), camera).Y, 20, Color.White);
 
         if (Raylib.CheckCollisionPointRec(playerPos, craftingStation))
             Raylib.DrawText("[E] TO CRAFT", (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 20, playerPos.Y - 40), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 20, playerPos.Y - 40), camera).Y, 20, Color.Yellow);
 
+        if (Raylib.CheckCollisionPointRec(playerPos, farmingArea))
+            Raylib.DrawText("[E] TO HARVEST", (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 20, playerPos.Y - 40), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 20, playerPos.Y - 40), camera).Y, 20, Color.Yellow);
+
         if (Raylib.CheckCollisionPointRec(playerPos, exitZone))
-            Raylib.DrawText("[E] TO ENTER LEVEL", (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 50, playerPos.Y - 40), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 50, playerPos.Y - 40), camera).Y, 20, Color.Yellow);
+            Raylib.DrawText("[E] TO DEPLOY", (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 20, playerPos.Y - 40), camera).X, (int)Raylib.GetWorldToScreen2D(new Vector2(playerPos.X - 20, playerPos.Y - 40), camera).Y, 20, Color.Yellow);
 
         if (IsCraftingMenuOpen)
         {
-            Raylib.DrawRectangle(Game.width/2 - 200, Game.height/2 - 150, 400, 300, new Color(0, 0, 0, 200));
-            Raylib.DrawText("CRAFTING UI PLACEHOLDER", Game.width/2 - 120, Game.height/2 - 10, 20, Color.White);
+            int curScrap = inventory.GetItemCount("Machine Scrap");
+            
+            // Draw UI Background
+            Raylib.DrawRectangle(Game.width/2 - 250, Game.height/2 - 150, 500, 300, new Color(0, 0, 0, 220));
+            Raylib.DrawRectangleLines(Game.width/2 - 250, Game.height/2 - 150, 500, 300, Color.White);
+            
+            Raylib.DrawText($"ASSEMBLER - YOUR SCRAP: {curScrap}", Game.width/2 - 180, Game.height/2 - 130, 20, Color.Gold);
+            
+            // Recipes
+            Raylib.DrawText(curScrap >= 3 ? "[1] Sharpen Katana (+5 DMG) : Costs 3 Scrap" : "[1] Sharpen Katana : Insufficient Scrap", Game.width/2 - 220, Game.height/2 - 70, 18, curScrap >= 3 ? Color.Green : Color.Gray);
+            Raylib.DrawText(curScrap >= 5 ? "[2] Forge Armor (+50 Max HP) : Costs 5 Scrap" : "[2] Forge Armor : Insufficient Scrap", Game.width/2 - 220, Game.height/2 - 30, 18, curScrap >= 5 ? Color.Green : Color.Gray);
+            Raylib.DrawText(curScrap >= 10 ? "[3] Print Boss Key (Required) : Costs 10 Scrap" : "[3] Print Boss Key : Insufficient Scrap", Game.width/2 - 220, Game.height/2 + 10, 18, curScrap >= 10 ? Color.Green : Color.Gray);
         }
     }
 }

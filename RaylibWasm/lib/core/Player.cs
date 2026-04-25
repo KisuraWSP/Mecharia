@@ -21,6 +21,7 @@ public class Player
     
     // NEW: Hitbox for your katana to check enemy collisions later
     public Rectangle AttackHitbox { get; private set; } 
+    public int AttackDamage { get; set; } = 10;
 
     private int currentFrame = 0;
     private int frameCounter = 0;

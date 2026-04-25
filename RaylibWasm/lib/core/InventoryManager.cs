@@ -53,6 +53,36 @@ public class InventoryManager
         return false;
     }
 
+    // --- NEW CRAFTING HELPERS ---
+    public int GetItemCount(string itemName)
+    {
+        int count = 0;
+        foreach (var item in Items)
+        {
+            if (item.Name == itemName) count++;
+        }
+        return count;
+    }
+
+    public bool TryConsumeItems(string itemName, int amountToConsume)
+    {
+        if (GetItemCount(itemName) < amountToConsume) return false;
+
+        int removedCount = 0;
+        for (int i = Items.Count - 1; i >= 0; i--)
+        {
+            if (Items[i].Name == itemName)
+            {
+                RemoveItemFromGrid(Items[i]);
+                Items.RemoveAt(i);
+                removedCount++;
+
+                if (removedCount == amountToConsume) break;
+            }
+        }
+        return true;
+    }
+
     private bool CanPlaceItem(InventoryItem item, int startGridX, int startGridY)
     {
         if (startGridX + item.GridWidth > Cols || startGridY + item.GridHeight > Rows)
