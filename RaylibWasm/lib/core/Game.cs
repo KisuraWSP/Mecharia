@@ -37,6 +37,7 @@ public class Game
     public static GameState CurrentGameState = GameState.HUB_WORLD;
     public static EnemyProfile standardMachine;
     public static EnemyProfile samuraiBoss;
+    private static ParallaxBackground parallaxBackground;
 
     public static void Init()
     {
@@ -65,6 +66,7 @@ public class Game
         // 1. Initialize the Game Managers
         CurrentRun = new Run(); // Starts the seeded RNG
         Hub = new HubWorld();
+        parallaxBackground = new ParallaxBackground();
         
         // change these to cross platform paths
         // also very buggy system rework this
@@ -110,6 +112,7 @@ public class Game
         if (CurrentGameState == GameState.HUB_WORLD)
         {
             Raylib.BeginMode2D(camera);
+                parallaxBackground.Draw(camera);
                 Hub.DrawWorld(player.GetPlayerPosition());
                 player.Draw(); 
             Raylib.EndMode2D();
@@ -123,6 +126,7 @@ public class Game
         {
             // Draw Level
             Raylib.BeginMode2D(camera);
+                parallaxBackground.Draw(camera);
                 CurrentLevel.DrawWorldItems(); // Draw items on ground
                 player.Draw();  
                 foreach (var enemy in enemies) enemy.Draw();
