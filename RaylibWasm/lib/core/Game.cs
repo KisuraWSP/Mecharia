@@ -12,7 +12,8 @@ public enum GameState
     MAIN_MENU = 0,
     GAME = 1,
     SETTINGS = 2,
-    HUB_WORLD = 3
+    HUB_WORLD = 3,
+    CUTSCENE = 4
 }
 
 public class Game
@@ -39,6 +40,7 @@ public class Game
     public static EnemyProfile samuraiBoss;
     private static ParallaxBackground parallaxBackground;
     private static Texture2D backgroundTexture;
+    public static CutsceneManager cutsceneManager;
 
     public static void Init()
     {
@@ -67,6 +69,7 @@ public class Game
         // 1. Initialize the Game Managers
         CurrentRun = new Run(); // Starts the seeded RNG
         Hub = new HubWorld();
+        cutsceneManager = new CutsceneManager();
         parallaxBackground = new ParallaxBackground();
         backgroundTexture = Raylib.LoadTexture("Resources/bg/background.jpg");
         
@@ -125,7 +128,7 @@ public class Game
 
             // --- 2. CORRUPTED TITLE ANIMATION ---
             string mainTitle = "MECHARIA";
-            string subTitle = "A Corrupted Simulation Game";
+            string subTitle = "A Corrupted Protocol Game";
 
             int titleFontSize = 80;
             int titleWidth = Raylib.MeasureText(mainTitle, titleFontSize);
@@ -163,29 +166,40 @@ public class Game
 
             if (RayGui.GuiButton(new Rectangle(btnX, (height / 2) + 20, btnWidth, btnHeight), "START DEPLOYMENT"))
             {
-                CurrentGameState = GameState.HUB_WORLD;
+                CurrentGameState = GameState.CUTSCENE;
+                cutsceneManager.StartCutscene(new List<string> {
+                    "WELCOME!",
+                    "THIS IS PROTOCOL ^&#@@",
+                    "Your Goal is to fight in these chambers and collect scrap to upgrade yourself",
+                    "You will be fighting humanoid like machines",
+                    "AS THIS TIMELINE IS @#&@&@*@ 78!2323"
+                });
             }
             
-            if (RayGui.GuiButton(new Rectangle(btnX, (height / 2) + 90, btnWidth, btnHeight), "SYSTEM SETTINGS"))
-            {
-                CurrentGameState = GameState.SETTINGS;
-            }
+            // if (RayGui.GuiButton(new Rectangle(btnX, (height / 2) + 90, btnWidth, btnHeight), "SYSTEM SETTINGS"))
+            // {
+            //     CurrentGameState = GameState.SETTINGS;
+            // }
         }  
-        else if (CurrentGameState == GameState.SETTINGS)
+        // else if (CurrentGameState == GameState.SETTINGS)
+        // {
+        //     // Settings Screen Background
+        //     Rectangle sourceRec = new Rectangle(0, 0, backgroundTexture.Width, backgroundTexture.Height);
+        //     Rectangle destRec = new Rectangle(0, 0, width, height);
+        //     Raylib.DrawTexturePro(backgroundTexture, sourceRec, destRec, Vector2.Zero, 0f, Color.DarkGray);
+        //     Raylib.DrawRectangle(0, 0, width, height, new Color(0, 0, 0, 200));
+
+        //     Raylib.DrawText("SETTINGS", (width/2) - 80, 100, 40, Color.White);
+
+        //     if (RayGui.GuiButton(new Rectangle(50, 50, 100, 40), "<- BACK"))
+        //     {
+        //         CurrentGameState = GameState.MAIN_MENU;
+        //     }
+        // }  
+        else if (CurrentGameState == GameState.CUTSCENE)
         {
-            // Settings Screen Background
-            Rectangle sourceRec = new Rectangle(0, 0, backgroundTexture.Width, backgroundTexture.Height);
-            Rectangle destRec = new Rectangle(0, 0, width, height);
-            Raylib.DrawTexturePro(backgroundTexture, sourceRec, destRec, Vector2.Zero, 0f, Color.DarkGray);
-            Raylib.DrawRectangle(0, 0, width, height, new Color(0, 0, 0, 200));
-
-            Raylib.DrawText("SETTINGS", (width/2) - 80, 100, 40, Color.White);
-
-            if (RayGui.GuiButton(new Rectangle(50, 50, 100, 40), "<- BACK"))
-            {
-                CurrentGameState = GameState.MAIN_MENU;
-            }
-        }  
+            cutsceneManager.Draw();
+        }
         else if (CurrentGameState == GameState.HUB_WORLD)
         {
             Raylib.BeginMode2D(camera);
@@ -220,6 +234,18 @@ public class Game
     
     public static void Update()
     {
+        if (CurrentGameState == GameState.CUTSCENE)
+        {
+            cutsceneManager.Update();
+            
+            if (cutsceneManager.IsFinished)
+            {
+                // Cutscene over, transport to the Hub World!
+                CurrentGameState = GameState.HUB_WORLD;
+            }
+            return;
+        }
+
         // --- 1. HUB WORLD LOGIC ---
         if (CurrentGameState == GameState.HUB_WORLD)
         {
