@@ -39,6 +39,8 @@ public class Player
     private static string baseDir = AppContext.BaseDirectory;
     private static string resourcesDir = Path.Combine(baseDir, "Resources", "sprite", "player");
 
+    private float invincibilityTimer = 0f;
+
     public Player(Vector2 _position)
     {
         textures = new Dictionary<AnimationState, Texture2D>();
@@ -85,8 +87,11 @@ public class Player
 
     public void Update()
     {
-        // NEW: Check for attack input (Left Mouse Button)
-        if (!isAttacking && Raylib.IsMouseButtonPressed(MouseButton.Left))
+        // NEW: Tick down the invincibility timer
+        if (invincibilityTimer > 0) invincibilityTimer -= Raylib.GetFrameTime();
+
+        // Prevent attacking while hurt
+        if (animationState != AnimationState.HURT && !isAttacking && Raylib.IsMouseButtonPressed(MouseButton.Left))
         {
             isAttacking = true;
             ChangeState(AnimationState.ATTACK);
@@ -99,23 +104,20 @@ public class Player
             frameCounter = 0;
             currentFrame++;
 
-            // NEW: Animation end logic
             if (currentFrame >= frameCounts[animationState]) 
             {
-                if (isAttacking)
+                if (isAttacking || animationState == AnimationState.HURT)
                 {
-                    // The attack animation finished, unlock the state and go to IDLE
+                    // Return to IDLE after an attack OR after taking damage
                     isAttacking = false;
                     ChangeState(AnimationState.IDLE);
                 }
                 else
                 {
-                    // Loop standard animations like RUN or IDLE
                     currentFrame = 0;
                 }
             }
             
-            // Ensure we don't draw out of bounds when swapping states
             if (currentFrame < frameCounts[animationState])
             {
                 frameRec.X = (float)currentFrame * (float)frameRec.Width;
@@ -123,9 +125,19 @@ public class Player
         }
         
         Collider = new Rectangle(position.X, position.Y, frameRec.Width, frameRec.Height);
-        
-        // NEW: Update the Katana hitbox relative to the player
         UpdateAttackHitbox();
+    }
+
+    public void Draw()
+    {
+        // NEW: Blinking effect when invincible (Draws only every other frame)
+        if (invincibilityTimer > 0 && (int)(invincibilityTimer * 10) % 2 == 0) return;
+
+        Rectangle drawRec = frameRec;
+
+        if (!isFacingRight) drawRec.Width = -drawRec.Width;
+        
+        Raylib.DrawTextureRec(textures[animationState], drawRec, position, Color.White);
     }
 
     private void UpdateAttackHitbox()
@@ -145,24 +157,16 @@ public class Player
         }
     }
 
-    public void Draw()
+    public void TakeDamage(int damage)
     {
-        Rectangle drawRec = frameRec;
+        // Don't take damage if already dead or currently invincible
+        if (Health <= 0 || invincibilityTimer > 0) return;
 
-        if (!isFacingRight)
-        {
-            drawRec.Width = -drawRec.Width;
-        }
+        Health -= damage;
+        invincibilityTimer = 1.5f; // 1.5 seconds of invulnerability
+        isAttacking = false;       // Cancel current attack
         
-        Raylib.DrawTextureRec(textures[animationState], drawRec, position, Color.White);
-
-        // OPTIONAL: Uncomment to see your attack hitbox for debugging!
-        /*
-        if (isAttacking)
-        {
-            Raylib.DrawRectangleLinesEx(AttackHitbox, 2, Color.Red);
-        }
-        */
+        ChangeState(AnimationState.HURT);
     }
 
     public void Move(int speed)

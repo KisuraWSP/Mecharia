@@ -35,6 +35,20 @@ public class InventoryManager
         }
     }
 
+    public void Clear()
+    {
+        Items.Clear();
+        draggedItem = Option.None<InventoryItem>();
+
+        for (int x = 0; x < Cols; x++)
+        {
+            for (int y = 0; y < Rows; y++)
+            {
+                grid[x, y] = Option.None<InventoryItem>();
+            }
+        }
+    }
+
     // --- LOGIC: AUTO-ADD ITEM ON PICKUP ---
     public bool TryAddItem(InventoryItem item)
     {

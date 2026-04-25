@@ -13,7 +13,8 @@ public enum GameState
     GAME = 1,
     SETTINGS = 2,
     HUB_WORLD = 3,
-    CUTSCENE = 4
+    CUTSCENE = 4,
+    GAME_OVER = 5
 }
 
 public class Game
@@ -41,6 +42,7 @@ public class Game
     private static ParallaxBackground parallaxBackground;
     private static Texture2D backgroundTexture;
     public static CutsceneManager cutsceneManager;
+    public static float gameOverTimer = 0f;
 
     public static void Init()
     {
@@ -223,6 +225,35 @@ public class Game
             DrawPlayerUI();
             CurrentLevel.DrawUI(); 
         }
+        // Add this right at the bottom of your big if/else if chain in Draw()
+        else if (CurrentGameState == GameState.GAME_OVER)
+        {
+            Raylib.ClearBackground(Color.Black);
+
+            string mainTitle = "CORRUPTED DISK";
+            int titleFontSize = 80;
+            int titleWidth = Raylib.MeasureText(mainTitle, titleFontSize);
+            int titleX = (width / 2) - (titleWidth / 2);
+            int titleY = height / 2 - 40;
+
+            // Violent Glitch Effect
+            int glitchOffsetX = 0;
+            int glitchOffsetY = 0;
+            if (Raylib.GetRandomValue(0, 10) > 4) // Happens very frequently
+            {
+                glitchOffsetX = Raylib.GetRandomValue(-10, 10);
+                glitchOffsetY = Raylib.GetRandomValue(-10, 10);
+            }
+
+            Raylib.DrawText(mainTitle, titleX + glitchOffsetX + 5, titleY + glitchOffsetY, titleFontSize, new Color(0, 255, 255, 200));
+            Raylib.DrawText(mainTitle, titleX - glitchOffsetX - 5, titleY - glitchOffsetY, titleFontSize, new Color(255, 0, 255, 200));
+            Raylib.DrawText(mainTitle, titleX, titleY, titleFontSize, Color.White);
+
+            string subTitle = "FATAL ERROR. ALL INVENTORY AND RUN DATA EXPUNGED.";
+            int subFontSize = 20;
+            int subWidth = Raylib.MeasureText(subTitle, subFontSize);
+            Raylib.DrawText(subTitle, (width / 2) - (subWidth / 2), titleY + 100, subFontSize, Color.Red);
+        }
             
         if (isInventoryOpen)
         {
@@ -321,9 +352,18 @@ public class Game
             Enemy enemy = enemies[i];
             enemy.Update(player.GetPlayerPosition());
 
+            // 1. PLAYER DAMAGES ENEMY
             if (player.isAttacking && Raylib.CheckCollisionRecs(player.AttackHitbox, enemy.Collider))
             {
                 enemy.TakeDamage(player.AttackDamage);
+            }
+
+            // 2. ENEMY DAMAGES PLAYER (NEW!)
+            if (!enemy.IsDead && Raylib.CheckCollisionRecs(player.Collider, enemy.Collider))
+            {
+                // Bosses do 30 damage, normal mobs do 10
+                int damageAmount = enemy.Profile.Type == EnemyType.EliteSamuraiBot ? 30 : 10;
+                player.TakeDamage(damageAmount);
             }
 
             if (enemy.IsDead)
@@ -341,6 +381,32 @@ public class Game
                 }
                 enemies.RemoveAt(i);
             }
+        }
+
+        if (player.Health <= 0 && CurrentGameState == GameState.GAME)
+        {
+            CurrentGameState = GameState.GAME_OVER;
+            gameOverTimer = 4.0f; // Show the glitch screen for 4 seconds
+            
+            inventoryManager.Clear(); // Wipe the player's items
+            
+            // Wipe the current run completely!
+            CurrentRun = new Run(); 
+            Hub = new HubWorld(); 
+        }
+
+        // --- NEW: GAME OVER LOGIC ---
+        if (CurrentGameState == GameState.GAME_OVER)
+        {
+            gameOverTimer -= Raylib.GetFrameTime();
+            if (gameOverTimer <= 0)
+            {
+                // Resurrect the player and send them to the Hub
+                player.Health = player.MaxHealth;
+                player.SetPosition(new Vector2(width / 2, height / 2)); 
+                CurrentGameState = GameState.HUB_WORLD;
+            }
+            return;
         }
     }   
 
