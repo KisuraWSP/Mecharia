@@ -3,6 +3,7 @@ using System.Numerics;
 using Raylib_cs;
 using Roy_T.AStar.Grids;
 using Roy_T.AStar.Primitives;
+using RayGUI;
 
 namespace lib.core;
 
@@ -10,9 +11,8 @@ public enum GameState
 {
     MAIN_MENU = 0,
     GAME = 1,
-    PAUSE = 2,
-    SETTINGS = 3,
-    HUB_WORLD = 4
+    SETTINGS = 2,
+    HUB_WORLD = 3
 }
 
 public class Game
@@ -34,7 +34,7 @@ public class Game
     public static Run CurrentRun;
     public static Level CurrentLevel;
     public static HubWorld Hub;
-    public static GameState CurrentGameState = GameState.HUB_WORLD;
+    public static GameState CurrentGameState = GameState.MAIN_MENU;
     public static EnemyProfile standardMachine;
     public static EnemyProfile samuraiBoss;
     private static ParallaxBackground parallaxBackground;
@@ -108,8 +108,27 @@ public class Game
         
         // Use a default clear background
         Raylib.ClearBackground(Color.SkyBlue);
+
+        if (CurrentGameState == GameState.MAIN_MENU)
+        {
+            if (RayGui.GuiButton(new Rectangle(new Vector2(width/2 - 100, height/2 - 100), new Vector2(200, 100)), "START"))
+            {
+                CurrentGameState = GameState.HUB_WORLD;
+            }
             
-        if (CurrentGameState == GameState.HUB_WORLD)
+            if (RayGui.GuiButton(new Rectangle(new Vector2(width/2 - 100, height/2 + 100), new Vector2(200, 100)), "SETTINGS"))
+            {
+                CurrentGameState = GameState.SETTINGS;
+            }
+        }  
+        else if (CurrentGameState == GameState.SETTINGS)
+        {
+            if (RayGui.GuiButton(new Rectangle(new Vector2(100, 100), new Vector2(100, 100)), "<-"))
+            {
+                CurrentGameState = GameState.MAIN_MENU;
+            }
+        }  
+        else if (CurrentGameState == GameState.HUB_WORLD)
         {
             Raylib.BeginMode2D(camera);
                 parallaxBackground.Draw(camera);

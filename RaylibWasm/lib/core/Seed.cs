@@ -22,7 +22,7 @@ public class Run
         RNG = new Random(Seed);
         
         // Base starting point
-        CurrentLevelNode = LevelType.TUTORIAL;
+        CurrentLevelNode = LevelType.LEVEL1;
 
         // Seed mathematically determines starting item drops and difficulty
         EnemyDifficultyMultiplier = 0.8f + (RNG.NextSingle() * 0.5f); 

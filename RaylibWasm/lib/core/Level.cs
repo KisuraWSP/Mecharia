@@ -7,12 +7,9 @@ namespace lib.core;
 
 public enum LevelType
 {
-    TUTORIAL = 1,
-    LEVEL1 = 2,
-    LEVEL2 = 3,
-    LEVEL3 = 4,
-    LEVEL4 = 5,
-    LEVEL5 = 6,
+    LEVEL1 = 1,
+    LEVEL2 = 2,
+    LEVEL3 = 3,
 }
 
 public class Round
@@ -168,7 +165,7 @@ public class HubWorld
         if (storedScrap < maxScrapStorage)
         {
             farmTimer += Raylib.GetFrameTime();
-            if (farmTimer >= 3.0f)
+            if (farmTimer >= 10.0f)
             {
                 storedScrap++;
                 farmTimer = 0f;
@@ -218,12 +215,6 @@ public class HubWorld
                     player.Health += 50; // Heal them slightly as a bonus
                 }
             }
-            // Recipe 3: Boss Key (Cost: 10 Scrap)
-            else if (Raylib.IsKeyPressed(KeyboardKey.Three) && currentScrap >= 10)
-            {
-                if (inventory.TryConsumeItems("Machine Scrap", 10))
-                    inventory.TryAddItem(new InventoryItem("Boss Key", 2, 2, "Resources/key.png"));
-            }
         }
     }
 
@@ -269,7 +260,6 @@ public class HubWorld
             // Recipes
             Raylib.DrawText(curScrap >= 3 ? "[1] Sharpen Katana (+5 DMG) : Costs 3 Scrap" : "[1] Sharpen Katana : Insufficient Scrap", Game.width/2 - 220, Game.height/2 - 70, 18, curScrap >= 3 ? Color.Green : Color.Gray);
             Raylib.DrawText(curScrap >= 5 ? "[2] Forge Armor (+50 Max HP) : Costs 5 Scrap" : "[2] Forge Armor : Insufficient Scrap", Game.width/2 - 220, Game.height/2 - 30, 18, curScrap >= 5 ? Color.Green : Color.Gray);
-            Raylib.DrawText(curScrap >= 10 ? "[3] Print Boss Key (Required) : Costs 10 Scrap" : "[3] Print Boss Key : Insufficient Scrap", Game.width/2 - 220, Game.height/2 + 10, 18, curScrap >= 10 ? Color.Green : Color.Gray);
         }
     }
 }
