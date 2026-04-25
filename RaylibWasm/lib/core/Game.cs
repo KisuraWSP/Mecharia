@@ -38,6 +38,7 @@ public class Game
     public static EnemyProfile standardMachine;
     public static EnemyProfile samuraiBoss;
     private static ParallaxBackground parallaxBackground;
+    private static Texture2D backgroundTexture;
 
     public static void Init()
     {
@@ -67,6 +68,7 @@ public class Game
         CurrentRun = new Run(); // Starts the seeded RNG
         Hub = new HubWorld();
         parallaxBackground = new ParallaxBackground();
+        backgroundTexture = Raylib.LoadTexture("Resources/bg/background.jpg");
         
         // change these to cross platform paths
         // also very buggy system rework this
@@ -107,23 +109,79 @@ public class Game
         Raylib.BeginDrawing();
         
         // Use a default clear background
-        Raylib.ClearBackground(Color.SkyBlue);
+        Raylib.ClearBackground(Raylib.GetColor(0x052c46ff));
 
         if (CurrentGameState == GameState.MAIN_MENU)
         {
-            if (RayGui.GuiButton(new Rectangle(new Vector2(width/2 - 100, height/2 - 100), new Vector2(200, 100)), "START"))
+            // --- 1. FULLSCREEN BACKGROUND ---
+            // Define what part of the image to use (the whole thing)
+            Rectangle sourceRec = new Rectangle(0, 0, backgroundTexture.Width, backgroundTexture.Height);
+            // Define where to draw it (the whole screen)
+            Rectangle destRec = new Rectangle(0, 0, width, height);
+            Raylib.DrawTexturePro(backgroundTexture, sourceRec, destRec, Vector2.Zero, 0f, Color.White);
+
+            // Add a dark semi-transparent overlay so the UI is easy to read
+            Raylib.DrawRectangle(0, 0, width, height, new Color(0, 0, 0, 150));
+
+            // --- 2. CORRUPTED TITLE ANIMATION ---
+            string mainTitle = "MECHARIA";
+            string subTitle = "A Corrupted Simulation Game";
+
+            int titleFontSize = 80;
+            int titleWidth = Raylib.MeasureText(mainTitle, titleFontSize);
+            int titleX = (width / 2) - (titleWidth / 2);
+            int titleY = height / 4;
+
+            // Calculate random glitch offsets (30% chance to glitch on any given frame)
+            int glitchOffsetX = 0;
+            int glitchOffsetY = 0;
+            if (Raylib.GetRandomValue(0, 10) > 7) 
+            {
+                glitchOffsetX = Raylib.GetRandomValue(-5, 5);
+                glitchOffsetY = Raylib.GetRandomValue(-5, 5);
+            }
+
+            // Draw Cyan Glitch Layer (Offset slightly)
+            Raylib.DrawText(mainTitle, titleX + glitchOffsetX + 4, titleY + glitchOffsetY, titleFontSize, new Color(0, 255, 255, 200));
+            // Draw Magenta Glitch Layer (Offset opposite direction)
+            Raylib.DrawText(mainTitle, titleX - glitchOffsetX - 4, titleY - glitchOffsetY, titleFontSize, new Color(255, 0, 255, 200));
+            // Draw Main White Text Layer on top
+            Raylib.DrawText(mainTitle, titleX, titleY, titleFontSize, Color.White);
+
+            // Draw Subtitle
+            int subFontSize = 20;
+            int subWidth = Raylib.MeasureText(subTitle, subFontSize);
+            Raylib.DrawText(subTitle, (width / 2) - (subWidth / 2), titleY + 90, subFontSize, Color.LightGray);
+
+            // --- 3. MENU BUTTONS ---
+            int btnWidth = 200;
+            int btnHeight = 50;
+            int btnX = (width / 2) - (btnWidth / 2);
+
+            // Make RayGUI text slightly bigger for the menu buttons
+            RayGui.GuiSetStyle((int)GuiControl.DEFAULT, (int)GuiDefaultProperty.TEXT_SIZE, 20);
+
+            if (RayGui.GuiButton(new Rectangle(btnX, (height / 2) + 20, btnWidth, btnHeight), "START DEPLOYMENT"))
             {
                 CurrentGameState = GameState.HUB_WORLD;
             }
             
-            if (RayGui.GuiButton(new Rectangle(new Vector2(width/2 - 100, height/2 + 100), new Vector2(200, 100)), "SETTINGS"))
+            if (RayGui.GuiButton(new Rectangle(btnX, (height / 2) + 90, btnWidth, btnHeight), "SYSTEM SETTINGS"))
             {
                 CurrentGameState = GameState.SETTINGS;
             }
         }  
         else if (CurrentGameState == GameState.SETTINGS)
         {
-            if (RayGui.GuiButton(new Rectangle(new Vector2(100, 100), new Vector2(100, 100)), "<-"))
+            // Settings Screen Background
+            Rectangle sourceRec = new Rectangle(0, 0, backgroundTexture.Width, backgroundTexture.Height);
+            Rectangle destRec = new Rectangle(0, 0, width, height);
+            Raylib.DrawTexturePro(backgroundTexture, sourceRec, destRec, Vector2.Zero, 0f, Color.DarkGray);
+            Raylib.DrawRectangle(0, 0, width, height, new Color(0, 0, 0, 200));
+
+            Raylib.DrawText("SETTINGS", (width/2) - 80, 100, 40, Color.White);
+
+            if (RayGui.GuiButton(new Rectangle(50, 50, 100, 40), "<- BACK"))
             {
                 CurrentGameState = GameState.MAIN_MENU;
             }
@@ -137,22 +195,19 @@ public class Game
             Raylib.EndMode2D();
             
             DrawPlayerUI(); 
-            
-            // Pass the camera in so it can calculate the text positions!
             Hub.DrawUI(camera, player.GetPlayerPosition(), inventoryManager);
         }
-        else if (CurrentGameState == GameState.GAME) // <--- THIS WAS MISSING
+        else if (CurrentGameState == GameState.GAME) 
         {
-            // Draw Level
             Raylib.BeginMode2D(camera);
                 parallaxBackground.Draw(camera);
-                CurrentLevel.DrawWorldItems(); // Draw items on ground
+                CurrentLevel.DrawWorldItems(); 
                 player.Draw();  
                 foreach (var enemy in enemies) enemy.Draw();
             Raylib.EndMode2D();
             
             DrawPlayerUI();
-            CurrentLevel.DrawUI(); // Draw Round Animations Over Screen
+            CurrentLevel.DrawUI(); 
         }
             
         if (isInventoryOpen)
@@ -162,7 +217,7 @@ public class Game
             
         Raylib.EndDrawing();
     }
-
+    
     public static void Update()
     {
         // --- 1. HUB WORLD LOGIC ---
