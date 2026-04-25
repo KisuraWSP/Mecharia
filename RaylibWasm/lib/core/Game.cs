@@ -73,12 +73,12 @@ public class Game
         parallaxBackground = new ParallaxBackground();
         backgroundTexture = Raylib.LoadTexture("Resources/bg/background.jpg");
         
-        standardMachine = new EnemyProfile(EnemyType.StandardMachine, maxHealth: 50, speed: 2.0f, attackRange: 60f)
+        standardMachine = new EnemyProfile(EnemyType.StandardMachine, maxHealth: 250, speed: 2.0f, attackRange: 60f)
             .AddSingleFileAnimation(EnemyState.ATTACK, "Resources/sprite/enemies/knight/ATTACK.png", frameCount: 10)
             .AddSingleFileAnimation(EnemyState.IDLE, "Resources/sprite/enemies/knight/IDLE.png", frameCount: 4)
             .AddSingleFileAnimation(EnemyState.DEAD, "Resources/sprite/enemies/knight/IDLE.png", frameCount: 4);
 
-        samuraiBoss = new EnemyProfile(EnemyType.EliteSamuraiBot, maxHealth: 300, speed: 3.5f, attackRange: 80f)
+        samuraiBoss = new EnemyProfile(EnemyType.EliteSamuraiBot, maxHealth: 550, speed: 3.5f, attackRange: 80f)
             .AddSheetAnimation(EnemyState.IDLE, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 0)
             .AddSheetAnimation(EnemyState.RUN, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 1)
             .AddSheetAnimation(EnemyState.DEAD, "Resources/sprite/enemies/archer/spritesheet.png", frameCount: 8, cellWidth: 64, cellHeight: 64, rowIndex: 1);
