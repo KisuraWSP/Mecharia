@@ -339,7 +339,9 @@ public class Game
             Hub = new HubWorld(); 
             inventoryManager.Clear(); 
             
-            return; 
+            LoadNextLevel();
+            
+            return;
         }
 
         // --- ENEMY UPDATE & LOOT DROPPING ---
